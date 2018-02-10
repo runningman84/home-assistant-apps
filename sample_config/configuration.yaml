@@ -1,0 +1,26 @@
+input_boolean:
+  vacation_mode:
+    initial: off
+  guest_mode:
+    initial: off
+  silent_mode:
+    initial: off
+
+input_number:
+  xiaomi_alarm_volume:
+    name: Alarm volume
+    initial: 100
+    min: 1
+    max: 100
+    step: 1
+  xiaomi_info_volume:
+    name: Info volume
+    initial: 10
+    min: 1
+    max: 100
+    step: 1
+    
+alarm_control_panel:
+  - platform: manual
+    code: !secret alarm_pin
+    pending_time: 30
