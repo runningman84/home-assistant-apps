@@ -1,0 +1,7 @@
+send_status_report_philipp:
+  alias:                     "Send status report philipp"
+  sequence:
+    - service:               notify.smtp_gmail_philipp
+      data_template:
+        title:               "AlertSystem triggered"
+        message:             "please check for intruders"
