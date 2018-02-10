@@ -1,0 +1,31 @@
+alarm_system:
+  module: alarm
+  class: AlarmSystem
+  device_trackers:
+    - device_tracker.android_phone_bob
+    - device_tracker.android_phone_jon
+  armed_home_sensors:
+    - binary_sensor.door_window_sensor_158d0001111111
+    - binary_sensor.door_window_sensor_158d0001222222
+    - binary_sensor.door_window_sensor_158d0001333333
+  armed_away_sensors:
+    - binary_sensor.door_window_sensor_158d0001111111
+    - binary_sensor.door_window_sensor_158d0001222222
+    - binary_sensor.door_window_sensor_158d0001333333
+    - binary_sensor.motion_sensor_158d000111111
+    - binary_sensor.motion_sensor_158d000222222
+  alarm_control_buttons:
+    - binary_sensor.switch_158d0001111111
+    - binary_sensor.switch_158d0002222222
+    - binary_sensor.switch_158d0003333333
+  alarm_lights:
+    - light.gateway_light_1111111
+  alarm_pin: 1234
+  vacation_control: input_boolean.vacation_mode
+  guest_control: input_boolean.guest_mode
+  silent_control: input_boolean.silent_mode
+  alarm_volume_control: input_number.xiaomi_alarm_volume
+  info_volume_control: input_number.xiaomi_info_volume
+  xiaomi_aqara_gw_mac: f00000000
+  notify_service: script/send_status_report_bob
+  notify_title: "Intruder Alert"
