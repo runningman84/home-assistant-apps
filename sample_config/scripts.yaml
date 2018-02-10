@@ -1,0 +1,73 @@
+# https://home-assistant.io/cookbook/#example-configurationyaml
+send_status_report_philipp:
+  alias:                     "Send status report philipp"
+  sequence:
+    - service:               notify.smtp_gmail_philipp
+      data_template:
+        title:               >
+          {% if title %}
+            {{title}}
+          {% else %}
+            Status Report
+          {% endif %}
+        message:             "
+Adresse:
+...
+Status Alarmanlage:
+- {{  states('alarm_control_panel.ha_alarm') }} -
+Alarmierte Rauchmelder:
+{% for state in states if state.attributes.device_class == 'smoke' and state.state == 'on' -%}
+- {{ state.name.split(' ',1)[1] }} seit {{ as_timestamp(state.last_changed) | timestamp_local }}
+{% else -%}
+- keine -
+{% endfor %}
+Rauchabzug Flur:
+{% if is_state('binary_sensor.door_window_sensor_158d00018339c3', 'on') %}
+- geöffnet -
+{%- else %}
+- geschlossen -
+{% endif %}
+Anwesende Personen:
+{% for state in states.device_tracker if '_phone_' in state.entity_id and state.state == 'home' -%}
+- {{ state.name.split(' ',1)[1] }} seit {{ as_timestamp(state.last_changed) | timestamp_local }}
+{% else %}
+- keine -
+{% endfor %}
+Aktive Bewegungsmelder:
+{% for state in states if state.attributes.device_class == 'motion' and state.state == 'on'  -%}
+- {{ state.name.split(' ',1)[1] }}
+{% else -%}
+- keine -
+{% endfor %}
+Offene Türen:
+{% for state in states if state.attributes.device_class == 'opening' and 'Fenster' not in state.attributes.friendly_name and state.state == 'on' -%}
+- {{ state.name.split(' ',1)[1] }} seit {{ as_timestamp(state.last_changed) | timestamp_local }}
+{% else -%}
+- keine -
+{% endfor %}
+Offene Fenster:
+{% for state in states if state.attributes.device_class == 'opening' and 'Tür' not in state.attributes.friendly_name and state.state == 'on'  -%}
+- {{ state.name.split(' ',1)[1] }} seit {{ as_timestamp(state.last_changed) | timestamp_local }}
+{% else -%}
+- keine -
+{% endfor %}
+Temperaturen:
+{% for state in states.climate  -%}
+-  {{state.attributes.current_temperature}} {{state.attributes.unit_of_measurement}} {{ state.name.split(' ',1)[1] }}
+{% else -%}
+- keine -
+{% endfor -%}
+{% for state in states.sensor if 'temperature_' in state.entity_id  -%}
+-  {{state.state | round(1)}} {{state.attributes.unit_of_measurement}} {{ state.name.split(' ',1)[1]
+}}
+{% else -%}
+- keine -
+{% endfor %}
+"
+        data:
+          images:
+            - /camera/camera.flur_unten_latest_0.jpg
+            - /camera/camera.flur_unten_latest_1.jpg
+            - /camera/camera.flur_unten_latest_2.jpg
+            - /camera/camera.flur_unten_latest_3.jpg
+            - /camera/camera.flur_unten_latest_4.jpg
