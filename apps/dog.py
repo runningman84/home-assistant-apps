@@ -1,4 +1,4 @@
-import appdaemon.appapi as appapi
+import appdaemon.plugins.hass.hassapi as hass
 
 #
 # Guard Dog App
@@ -7,7 +7,7 @@ import appdaemon.appapi as appapi
 #
 
 
-class GuardDog(appapi.AppDaemon):
+class GuardDog(hass.Hass):
 
     def initialize(self):
         self.log("Hello from GuardDog")
