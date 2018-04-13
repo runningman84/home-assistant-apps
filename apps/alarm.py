@@ -1,4 +1,4 @@
-import appdaemon.appapi as appapi
+import appdaemon.plugins.hass.hassapi as hass
 from datetime import datetime
 import time
 import os
@@ -10,7 +10,7 @@ import os
 #
 
 
-class AlarmSystem(appapi.AppDaemon):
+class AlarmSystem(hass.Hass):
 
     def initialize(self):
         self.log("Hello from AlarmSystem")
@@ -36,6 +36,7 @@ class AlarmSystem(appapi.AppDaemon):
             "notify_title", "AlarmSystem triggered, possible intruder")
         self._cameras = self.args.get("cameras", [])
         self._camera_snapshot_path = self.args.get("camera_snapshot_path", '/camera')
+        self._telegram_user_ids = self.args.get("telegram_user_ids",[])
 
         # xiaomi specific
         self._xiaomi_aqara_gw_mac = self.args.get("xiaomi_aqara_gw_mac", None)
@@ -101,6 +102,10 @@ class AlarmSystem(appapi.AppDaemon):
         self._sensor_handles = {}
         self.set_alarm_light_color_based_on_state()
 
+        # FIXME
+        #runtime = datetime.time(0, 0, 0)
+        #self.run_hourly(self.set_alarm_light_color_based_on_state, runtime)
+
     def start_armed_home_sensors_listener(self):
         for sensor in self._armed_home_sensors:
             self._sensor_handles[sensor] = self.listen_state(
@@ -114,7 +119,8 @@ class AlarmSystem(appapi.AppDaemon):
     def stop_sensors_listener(self):
         for handle in self._sensor_handles:
             if self._sensor_handles[handle] is not None:
-                self.cancel_timer(self._sensor_handles[handle] )
+                self.cancel_listen_state(self._sensor_handles[handle])
+                self._sensor_handles[handle] = None
 
     def count_doors_and_windows(self, state):
         count = 0
@@ -272,10 +278,26 @@ class AlarmSystem(appapi.AppDaemon):
             #os.symlink(filename, linkname)
             os.system('ln -sf "' + lnksrc + '" "' + linkdst + '"')
 
+            if self._snap_count < 3:
+                self.handle = self.run_in(self.send_camera_snapshot, 3, filename = filename)
+
         self._snap_count += 1
         self.log("Camera snapshot {} stored as {}".format(self._snap_count, filename))
         if self._snap_count < self._snap_max_count:
             self._camera_snapshot_handle = self.run_in(self.camera_snapshot, self._snap_interval)
+
+    def send_camera_snapshot(self, kwargs):
+
+        for user_id in self._telegram_user_ids:
+            self.log("Sending photo {} to user_id {}".format(kwargs['filename'], user_id))
+            self.call_service('telegram_bot/send_photo',
+                              title='*Alarm System*',
+                              target=user_id,
+                              file=kwargs['filename'],
+                              caption='Webcam picture',
+                              disable_notification=True)
+
+        #self.handle = self.run_in(self.run_in_c, title = "run_in5")
 
     def start_camera_snapshot(self, reason="default", max_count=3600, interval=1):
         self.stop_camera_snapshot()
@@ -397,6 +419,15 @@ class AlarmSystem(appapi.AppDaemon):
                 new, entity, self.get_alarm_state()))
             return
 
+        for user_id in self._telegram_user_ids:
+            msg = "{} state changed from {} to {}".format(self.get_state(entity, attribute = "friendly_name"), old, new)
+            self.log("Sending message {} to user_id {}".format(msg, user_id))
+            self.call_service('telegram_bot/send_message',
+                              title='*Alarm System*',
+                              target=user_id,
+                              message=msg,
+                              disable_notification=True)
+
         self.call_service("alarm_control_panel/alarm_trigger",
                           entity_id=self._alarm_control_panel)
 
@@ -408,6 +439,15 @@ class AlarmSystem(appapi.AppDaemon):
             self.log("Ignoring status {} of {} because alarm system is in state {}".format(
                 new, entity, self.get_alarm_state()))
             return
+
+        for user_id in self._telegram_user_ids:
+            msg = "{} state changed from {} to {}".format(self.get_state(entity, attribute = "friendly_name"), old, new)
+            self.log("Sending message {} to user_id {}".format(msg, user_id))
+            self.call_service('telegram_bot/send_message',
+                              title='*Alarm System*',
+                              target=user_id,
+                              message=msg,
+                              disable_notification=True)
 
         self.call_service("alarm_control_panel/alarm_trigger",
                           entity_id=self._alarm_control_panel)
