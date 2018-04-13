@@ -1,4 +1,4 @@
-import appdaemon.appapi as appapi
+import appdaemon.plugins.hass.hassapi as hass
 
 #
 # HeatSaver App
@@ -7,7 +7,7 @@ import appdaemon.appapi as appapi
 #
 
 
-class HeatSaver(appapi.AppDaemon):
+class HeatSaver(hass.Hass):
 
     def initialize(self):
         self.log("Hello from HeatSaver")
@@ -159,10 +159,10 @@ class HeatSaver(appapi.AppDaemon):
         return vars(self)['_' + self.get_current_status() + '_operation_mode']
 
     def get_current_temperature(self, entity_id):
-        return float(self.get_state(entity_id, "temperature"))
+        return float(self.get_state(entity_id, attribute = "temperature"))
 
     def get_current_operation_mode(self, entity_id):
-        return self.get_state(entity_id, "operation_mode")
+        return self.get_state(entity_id, attribute = "operation_mode")
 
     def set_operation_mode(self, entity_id):
         if self.get_desired_operation_mode() == self.get_current_operation_mode(entity_id):
@@ -170,7 +170,7 @@ class HeatSaver(appapi.AppDaemon):
                 entity_id, self.get_desired_operation_mode()))
         else:
             self.log("Changing heater {} operation_mode from {} to {}".format(
-                entity_id, self.get_state(entity_id, "operation_mode"), self.get_desired_operation_mode()))
+                entity_id, self.get_state(entity_id, attribute = "operation_mode"), self.get_desired_operation_mode()))
             self.call_service("climate/set_operation_mode",
                               entity_id=entity_id, operation_mode=self.get_desired_operation_mode())
 
@@ -180,7 +180,7 @@ class HeatSaver(appapi.AppDaemon):
                 entity_id, self.get_desired_temperature()))
         elif self.get_desired_operation_mode() == "manual":
             self.log("Changing heater {} temperature from {} to {}".format(
-                entity_id, self.get_state(entity_id, "temperature"), self.get_desired_temperature()))
+                entity_id, self.get_state(entity_id, attribute = "temperature"), self.get_desired_temperature()))
             self.call_service("climate/set_temperature",
                               entity_id=entity_id, temperature=self.get_desired_temperature())
 
