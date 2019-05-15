@@ -90,7 +90,7 @@ class AlarmSystem(hass.Hass):
         i = 0
         for sensor in self._device_trackers:
             self.listen_state(self.alarm_arm_away_auto_callback, sensor,
-                              new="not_home", duration=5 * 60 + i)
+                              new="not_home", duration=15 * 60 + i)
             self.listen_state(self.alarm_disarm_auto_callback,
                               sensor, new="home", duration=i)
             i += 1
@@ -263,6 +263,9 @@ class AlarmSystem(hass.Hass):
             self._flash_warning_handle = None
 
     def camera_snapshot(self, kwargs):
+        if len(self._cameras) == 0:
+            return
+
         if self._snap_count >= self._snap_max_count:
             self.log("Camera snapshot max_count reached {}/{}".format(self._snap_count, self._snap_max_count))
             return
@@ -287,6 +290,8 @@ class AlarmSystem(hass.Hass):
             self._camera_snapshot_handle = self.run_in(self.camera_snapshot, self._snap_interval)
 
     def send_camera_snapshot(self, kwargs):
+        if len(self._cameras) == 0:
+            return
 
         for user_id in self._telegram_user_ids:
             self.log("Sending photo {} to user_id {}".format(kwargs['filename'], user_id))
@@ -300,6 +305,9 @@ class AlarmSystem(hass.Hass):
         #self.handle = self.run_in(self.run_in_c, title = "run_in5")
 
     def start_camera_snapshot(self, reason="default", max_count=3600, interval=1):
+        if len(self._cameras) == 0:
+            return
+
         self.stop_camera_snapshot()
         self._snap_count = 0
         self._snap_max_count = max_count
@@ -312,6 +320,9 @@ class AlarmSystem(hass.Hass):
         self._camera_snapshot_handle = self.run_in(self.camera_snapshot, 1)
 
     def stop_camera_snapshot(self):
+        if len(self._cameras) == 0:
+            return
+
         if self._camera_snapshot_handle is not None:
             self.log("Stopping camera snapshot timer")
             self.cancel_timer(self._camera_snapshot_handle)
@@ -396,6 +407,7 @@ class AlarmSystem(hass.Hass):
         self.start_armed_away_sensors_listener()
         self.set_alarm_light_color_based_on_state()
 
+
     def alarm_state_armed_home_callback(self, entity, attribute, old, new, kwargs):
         self.log(
             "Callback alarm_state_armed_home from {}:{} {}->{}".format(entity, attribute, old, new))
@@ -417,6 +429,11 @@ class AlarmSystem(hass.Hass):
         if(self.is_alarm_armed_away() == False):
             self.log("Ignoring status {} of {} because alarm system is in state {}".format(
                 new, entity, self.get_alarm_state()))
+            return
+
+        if(self.count_home_device_trackers() > 0):
+            self.log("Ignoring status {} of {} because {} device_trackers are still at home".format(
+                new, entity, self.count_home_device_trackers()))
             return
 
         for user_id in self._telegram_user_ids:
