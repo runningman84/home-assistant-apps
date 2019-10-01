@@ -24,3 +24,8 @@ alarm_control_panel:
   - platform: manual
     code: !secret alarm_pin
     pending_time: 30
+
+folder_watcher:
+  - folder: /tmp
+    patterns:
+      - '*.jpg'
