@@ -24,16 +24,15 @@ class HeatSaver(hass.Hass):
         self._offset_temperature = self.args.get("offset_temperature", 0)
         self._home_temperature = self.args.get("home_temperature", 20)
         self._home_temperature_control = self.args.get("home_temperature_control", None)
-        self._home_operation_mode = self.args.get("home_operation_mode", "auto")
+        self._home_hvac_mode = self.args.get("home_hvac_mode", "auto")
         self._away_temperature = self.args.get("away_temperature", 18)
         self._away_temperature_control = self.args.get("away_temperature_control", None)
-        self._away_operation_mode = self.args.get("away_operation_mode", "manual")
+        self._away_hvac_mode = self.args.get("away_hvac_mode", "heat")
         self._vacation_temperature = self.args.get("vacation_temperature", 16)
-        self._vacation_operation_mode = self.args.get(
-            "vacation_operation_mode", "manual")
+        self._vacation_hvac_mode = self.args.get("vacation_hvac_mode", "heat")
         self._vacation_temperature_control = self.args.get("vacation_temperature_control", None)
         self._open_temperature = self.args.get("open_temperature", 14)
-        self._open_operation_mode = self.args.get("open_operation_mode", "manual")
+        self._open_hvac_mode = self.args.get("open_hvac_mode", "off")
         self._open_temperature_control = self.args.get("open_temperature_control", None)
 
         # log current config
@@ -48,8 +47,8 @@ class HeatSaver(hass.Hass):
         self.log("Got guest_mode {}".format(self.in_guest_mode()))
         self.log("Got vacation_mode {}".format(self.in_vacation_mode()))
         self.log("Got currente status {}".format(self.get_current_status()))
-        self.log("Got desired_operation_mode {}".format(
-            self.get_desired_operation_mode()))
+        self.log("Got desired_hvac_mode {}".format(
+            self.get_desired_hvac_mode()))
         self.log("Got desired_temperature {}".format(
             self.get_desired_temperature()))
 
@@ -92,7 +91,7 @@ class HeatSaver(hass.Hass):
         for climate_control in self._climate_controls:
             self.listen_state(self.change_heater_callback,
                               climate_control, new="auto", old="manual")
-            self.set_operation_mode(climate_control)
+            self.set_hvac_mode(climate_control)
             self.set_temperature(climate_control)
 
 
@@ -155,30 +154,30 @@ class HeatSaver(hass.Hass):
         else:
             return float(self.get_state(vars(self)['_' + self.get_current_status() + '_temperature_control'])) + float(self._offset_temperature)
 
-    def get_desired_operation_mode(self):
-        return vars(self)['_' + self.get_current_status() + '_operation_mode']
+    def get_desired_hvac_mode(self):
+        return vars(self)['_' + self.get_current_status() + '_hvac_mode']
 
     def get_current_temperature(self, entity_id):
         return float(self.get_state(entity_id, attribute = "temperature"))
 
-    def get_current_operation_mode(self, entity_id):
-        return self.get_state(entity_id, attribute = "operation_mode")
+    def get_current_hvac_mode(self, entity_id):
+        return self.get_state(entity_id, attribute = "hvac_mode")
 
-    def set_operation_mode(self, entity_id):
-        if self.get_desired_operation_mode() == self.get_current_operation_mode(entity_id):
-            self.log("Heater {} is already in operation_mode {}".format(
-                entity_id, self.get_desired_operation_mode()))
+    def set_hvac_mode(self, entity_id):
+        if self.get_desired_hvac_mode() == self.get_current_hvac_mode(entity_id):
+            self.log("Heater {} is already in hvac_mode {}".format(
+                entity_id, self.get_desired_hvac_mode()))
         else:
-            self.log("Changing heater {} operation_mode from {} to {}".format(
-                entity_id, self.get_state(entity_id, attribute = "operation_mode"), self.get_desired_operation_mode()))
-            self.call_service("climate/set_operation_mode",
-                              entity_id=entity_id, operation_mode=self.get_desired_operation_mode())
+            self.log("Changing heater {} hvac_mode from {} to {}".format(
+                entity_id, self.get_state(entity_id, attribute = "hvac_mode"), self.get_desired_hvac_mode()))
+            self.call_service("climate/set_hvac_mode",
+                              entity_id=entity_id, hvac_mode=self.get_desired_hvac_mode())
 
     def set_temperature(self, entity_id):
         if self.get_desired_temperature() == self.get_current_temperature(entity_id):
             self.log("Heater {} is already at temperature {}".format(
                 entity_id, self.get_desired_temperature()))
-        elif self.get_desired_operation_mode() == "manual":
+        elif self.get_desired_hvac_mode() == "manual":
             self.log("Changing heater {} temperature from {} to {}".format(
                 entity_id, self.get_state(entity_id, attribute = "temperature"), self.get_desired_temperature()))
             self.call_service("climate/set_temperature",
@@ -189,9 +188,9 @@ class HeatSaver(hass.Hass):
             "Callback change_heater from {}:{} {}->{}".format(entity, attribute, old, new))
 
         self.log("Current status is {}".format(self.get_current_status()))
-        self.log("Desired operation_mode is {}".format(self.get_desired_operation_mode()))
+        self.log("Desired hvac_mode is {}".format(self.get_desired_hvac_mode()))
         self.log("Desired temperature is {}".format(self.get_desired_temperature()))
 
         for climate_control in self._climate_controls:
-            self.set_operation_mode(climate_control)
+            self.set_hvac_mode(climate_control)
             self.set_temperature(climate_control)
