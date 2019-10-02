@@ -4,16 +4,18 @@ alarm_system:
   device_trackers:
     - device_tracker.android_phone_bob
     - device_tracker.android_phone_jon
-  armed_home_sensors:
+  armed_home_binary_sensors:
     - binary_sensor.door_window_sensor_158d0001111111
     - binary_sensor.door_window_sensor_158d0001222222
     - binary_sensor.door_window_sensor_158d0001333333
-  armed_away_sensors:
+  armed_away_binary_sensors:
     - binary_sensor.door_window_sensor_158d0001111111
     - binary_sensor.door_window_sensor_158d0001222222
     - binary_sensor.door_window_sensor_158d0001333333
     - binary_sensor.motion_sensor_158d000111111
     - binary_sensor.motion_sensor_158d000222222
+  armed_away_image_processing_sensors:
+    - image_processing.doods_basement
   alarm_control_buttons:
     - binary_sensor.switch_158d0001111111
     - binary_sensor.switch_158d0002222222
