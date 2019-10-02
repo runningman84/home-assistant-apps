@@ -14,8 +14,11 @@ alarm_system:
     - binary_sensor.door_window_sensor_158d0001333333
     - binary_sensor.motion_sensor_158d000111111
     - binary_sensor.motion_sensor_158d000222222
+  armed_home_image_processing_sensors:
+    - image_processing.doods_basement
   armed_away_image_processing_sensors:
     - image_processing.doods_basement
+    - image_processing.doods_kitchen
   alarm_control_buttons:
     - binary_sensor.switch_158d0001111111
     - binary_sensor.switch_158d0002222222
