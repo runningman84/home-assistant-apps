@@ -26,7 +26,10 @@ info_volume_control | input_number for input volume | None
 xiaomi_aqara_gw_mac | xiaomi_aqara_gw_mac to play ringtones | None
 notify_service | script to call for notification | None
 notify_title | title parameter for script | AlarmSystem triggered, possible intruder
-
+cameras | List of cameras (snapshots will be made once alarm is triggered) | []
+camera_snapshot_path | Path for storing camera snapshots | /tmp
+camera_snapshot_regex | Regex for camera snapshots | "camera_.*\d+_\d+\.jpg"
+telegram_user_ids | list of telegram user ids used for notifications | []
 
 HeatSaver
 ============
