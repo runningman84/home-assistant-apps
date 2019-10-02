@@ -12,8 +12,9 @@ This system work with any light system (should support color) and with any senso
 Key | Description | Default
 ------------ | ------------- | -------------
 device_trackers | list of tracked devices (for auto arming / disarming) | []
-armed_home_sensors | list of sensors to monitor (like doors, motion, sensors) in case you are home | []
-armed_away_sensors | list of sensors to monitor (like doors, motion, sensors) in case you are away | []
+armed_home_binary_sensors | list of binary sensors to monitor (like doors, motion, sensors) in case you are home | []
+armed_away_binary_sensors | list of binary sensors to monitor (like doors, motion, sensors) in case you are away | []
+armed_away_image_processing_sensors | list of image processing sensors to monitor in case you are away | []
 alarm_control_buttons | list of buttons to control (single click arm_away, double click disarm, long pres arm_home) | []
 alarm_lights | list of lights to flash (red color for triggered alarm) | []
 vacation_control | not used (tbd)
