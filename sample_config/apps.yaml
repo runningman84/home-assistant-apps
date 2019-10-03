@@ -75,3 +75,32 @@ heat_saver_livingroom:
   away_temperature_control: input_number.climate_away_temperature
   vacation_temperature_control: input_number.climate_vacation_temperature
   open_temperature_control: input_number.climate_open_temperature
+power_saver_livingroom:
+  module: power
+  class: PowerSaver
+  motion_sensors:
+    - binary_sensor.motion_sensor_158d000111111
+  device_trackers:
+    - device_tracker.android_phone_bob
+    - device_tracker.android_phone_jon
+  power_controls:
+    - light.onoff_plug_livingroom_1
+  vacation_control: input_boolean.vacation_mode
+  guest_control: input_boolean.guest_mode
+light_saver_office:
+  module: light
+  class: LightSaver
+  motion_sensors:
+    - binary_sensor.motion_sensor_158d000222222
+  illumination_sensors:
+    - sensor.illumination_158d0001d82f66
+  device_trackers:
+    - device_tracker.android_phone_bob
+  lights:
+    - light.hue_office_1
+    - light.hue_office_2
+  off_scene: scene.office_light_off
+  evening_scene: scene.office_light_evening
+  night_scene: scene.office_light_night
+  vacation_control: input_boolean.vacation_mode
+  guest_control: input_boolean.guest_mode

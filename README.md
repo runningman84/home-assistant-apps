@@ -48,3 +48,44 @@ home_temperature_control | slider to control temperature of the state at home | 
 away_temperature_control | slider to control temperature of the state at away | None
 vacation_temperature_control | slider to control temperature of the state at vacation | None
 open_temperature_control | slider to control temperature of the state at open | None
+
+LightSaver
+============
+
+This app controls the lights based on motion sensors, sun elevation, illumination level and some global control settings. Tt saves energy by switching lights off.
+
+Key | Description | Default
+------------ | ------------- | -------------
+device_trackers | list of tracked devices | []
+motion_sensors | list of sensors to monitor for motion | []
+lights | list of lights | []
+guest_control | input boolean to configure a babysitter mode which does not switch off lights | None
+vacation_control | input boolean to configure a vacaction mode which switches off lights | None
+motion_duration | time for no motion until lights are switched off | 180
+tracker_duration | time for tracker not_home until lights are switched off | 60
+vacation_duration | time for vation mode until lights are switched off | 60
+min_elevation | min evelation which turns lights on | 10
+min_illumination | min illumination which turns lights on | 15
+night_scene | scene to use for night lights | None
+night_start | start time for night mode | 23:15:00
+night_end | start time for night mode | 06:30:00
+evening_scene | scene to use for evening lights | None
+off_scene | scene to use for lights off | None
+
+
+PowerSaver
+============
+
+This app controls the devices based on motion sensors and some global control settings. Tt saves energy by switching devices off.
+
+Key | Description | Default
+------------ | ------------- | -------------
+device_trackers | list of tracked devices | []
+motion_sensors | list of sensors to monitor for motion | []
+power_controls | list of power_controls | []
+guest_control | input boolean to configure a babysitter mode which does not switch off lights | None
+vacation_control | input boolean to configure a vacaction mode which switches off lights | None
+motion_duration | time for no motion until lights are switched off | 180
+tracker_duration | time for tracker not_home until lights are switched off | 60
+vacation_duration | time for vation mode until lights are switched off | 60
+

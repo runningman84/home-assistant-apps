@@ -34,7 +34,7 @@ class LightSaver(hass.Hass):
         self._evening_scene = self.args.get("evening_scene", None)
         self._off_scene = self.args.get("off_scene", None)
         self._night_start = self.args.get("night_start", "23:15:00")
-        self._night_end = self.args.get("night_start", "06:30:00")
+        self._night_end = self.args.get("night_end", "06:30:00")
 
         # log current config
         self.log("Got motion sensors {}".format(
