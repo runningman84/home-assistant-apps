@@ -52,7 +52,7 @@ open_temperature_control | slider to control temperature of the state at open | 
 LightSaver
 ============
 
-This app controls the lights based on motion sensors, sun elevation, illumination level and some global control settings. Tt saves energy by switching lights off.
+This app controls the lights based on motion sensors, sun elevation, illumination level and some global control settings. It saves energy by switching lights off.
 
 Key | Description | Default
 ------------ | ------------- | -------------
@@ -76,7 +76,7 @@ off_scene | scene to use for lights off | None
 PowerSaver
 ============
 
-This app controls the devices based on motion sensors and some global control settings. Tt saves energy by switching devices off.
+This app controls the devices based on motion sensors and some global control settings. It saves energy by switching devices off.
 
 Key | Description | Default
 ------------ | ------------- | -------------
