@@ -1,7 +1,6 @@
 import appdaemon.plugins.hass.hassapi as hass
-from datetime import datetime
+import datetime
 import time
-import os
 import re
 
 #
@@ -17,11 +16,17 @@ class AlarmSystem(hass.Hass):
         self.log("Hello from AlarmSystem")
 
         # setup sane defaults
+        # sensors
         self._armed_home_binary_sensors = self.args.get("armed_home_binary_sensors", [])
         self._armed_home_image_processing_sensors = self.args.get("armed_home_image_processing_sensors", [])
         self._armed_away_binary_sensors = self.args.get("armed_away_binary_sensors", [])
         self._armed_away_image_processing_sensors = self.args.get("armed_away_image_processing_sensors", [])
+        self._water_binary_sensors = self.args.get("water_binary_sensors", [])
+        self._fire_binary_sensors = self.args.get("fire_binary_sensors", [])
+        self._fire_temperature_sensors = self.args.get("fire_temperature_sensors", [])
+        self._fire_temperature_threshold = self.args.get("fire_temperature_threshold", 50)
         self._device_trackers = self.args.get("device_trackers", [])
+        # controls
         self._vacation_control = self.args.get("vacation_control", None)
         self._guest_control = self.args.get("guest_control", None)
         self._alarm_control_panel = self.args.get(
@@ -34,13 +39,18 @@ class AlarmSystem(hass.Hass):
             "alarm_volume_control", None)
         self._info_volume_control = self.args.get("info_volume_control", None)
         self._silent_control = self.args.get("silent_control", None)
+        # notifications
         self._notify_service = self.args.get("notify_service", None)
         self._notify_title = self.args.get(
             "notify_title", "AlarmSystem triggered, possible intruder")
+        self._telegram_user_ids = self.args.get("telegram_user_ids",[])
+        # cameras
         self._cameras = self.args.get("cameras", [])
         self._camera_snapshot_path = self.args.get("camera_snapshot_path", '/tmp')
-        self._camera_snapshot_regex = self.args.get("camera_snapshot_regex", "camera_.*\d+_\d+\.jpg")
-        self._telegram_user_ids = self.args.get("telegram_user_ids",[])
+        self._camera_snapshot_regex = self.args.get("camera_snapshot_regex", "camera_.*\\d+_\\d+\\.jpg")
+        # auto arm time (utc)
+        self._alarm_arm_home_after_time = self.args.get("alarm_arm_home_after_time", "23:36:00")
+        self._alarm_arm_home_before_time = self.args.get("alarm_arm_home_before_time", "06:00:00")
 
         # xiaomi specific
         self._xiaomi_aqara_gw_mac = self.args.get("xiaomi_aqara_gw_mac", None)
@@ -52,10 +62,14 @@ class AlarmSystem(hass.Hass):
             "xiaomi_aqara_disarmed_ringtone_id", 11)
 
         # log current config
-        self.log("Got armed_home sensors {}".format(
+        self.log("Got armed_home binary sensors {}".format(
             self._armed_home_binary_sensors))
-        self.log("Got armed_away sensors {}".format(
+        self.log("Got armed_home image processing sensors {}".format(
+            self._armed_home_image_processing_sensors))            
+        self.log("Got armed_away binary sensors {}".format(
             self._armed_away_binary_sensors))
+        self.log("Got armed_away image processing sensors {}".format(
+            self._armed_away_image_processing_sensors))                   
         self.log("Got device trackers {}".format(self._device_trackers))
         self.log("Got {} device_trackers home and {} device_trackers not home".format(
             self.count_home_device_trackers(), self.count_not_home_device_trackers()))
@@ -97,6 +111,7 @@ class AlarmSystem(hass.Hass):
                               new="not_home", duration=15 * 60 + i)
             self.listen_state(self.alarm_disarm_auto_callback,
                               sensor, new="home", duration=i)
+            self.listen_state(self.alarm_arm_home_auto_state_change_callback, sensor, new="home", duration=15 * 60 + 1)
             i += 1
 
         # Images
@@ -112,16 +127,22 @@ class AlarmSystem(hass.Hass):
         self.set_alarm_light_color_based_on_state()
         self.start_sensor_listeners()
 
-        # FIXME
-        #runtime = datetime.time(0, 0, 0)
-        #self.run_hourly(self.set_alarm_light_color_based_on_state, runtime)
+        if(self._alarm_arm_home_after_time is not None):
+            runtime = self.parse_time(self._alarm_arm_home_after_time)
+            self.run_daily(self.alarm_arm_home_auto_timer_callback, runtime)
+            self.log("Got alarm_arm_home_after_time {}".format(runtime))
+        if(self._alarm_arm_home_before_time is not None):
+            runtime = self.parse_time(self._alarm_arm_home_before_time)
+            self.run_daily(self.alarm_disarm_home_auto_timer_callback, runtime)
+            self.log("Got alarm_arm_home_before_time {}".format(runtime))
 
+        self.log("Current alarm_state is {}".format(self.get_alarm_state()))
     
     def start_sensor_listeners(self):
         if self.is_alarm_armed_away():
             self.start_armed_away_binary_sensor_listeners()
         elif self.is_alarm_armed_home():
-            self.start_armed_away_binary_sensor_listeners()
+            self.start_armed_home_binary_sensor_listeners()
 
     def start_armed_home_binary_sensor_listeners(self):
         for sensor in self._armed_home_binary_sensors:
@@ -137,7 +158,7 @@ class AlarmSystem(hass.Hass):
                 self.trigger_alarm_while_armed_away_callback, sensor, new="on", old="off")
         for sensor in self._armed_away_image_processing_sensors:
             self._sensor_handles[sensor] = self.listen_state(
-                self.trigger_alarm_while_armed_home_callback, sensor)
+                self.trigger_alarm_while_armed_away_callback, sensor)
 
     def stop_sensor_listeners(self):
         for handle in self._sensor_handles:
@@ -145,18 +166,18 @@ class AlarmSystem(hass.Hass):
                 self.cancel_listen_state(self._sensor_handles[handle])
                 self._sensor_handles[handle] = None
 
-    def count_doors_and_windows(self, state):
-        count = 0
-        for sensor in self._door_window_sensors:
-            if self.get_state(sensor) == state:
-                count = count + 1
-        return count
+    # def count_doors_and_windows(self, state):
+    #     count = 0
+    #     for sensor in self._door_window_sensors:
+    #         if self.get_state(sensor) == state:
+    #             count = count + 1
+    #     return count
 
-    def count_open_doors_and_windows(self):
-        return self.count_doors_and_windows("on")
+    # def count_open_doors_and_windows(self):
+    #     return self.count_doors_and_windows("on")
 
-    def count_closed_doors_and_windows(self):
-        return self.count_doors_and_windows("off")
+    # def count_closed_doors_and_windows(self):
+    #     return self.count_doors_and_windows("off")
 
     def count_device_trackers(self, state):
         count = 0
@@ -245,6 +266,9 @@ class AlarmSystem(hass.Hass):
             return None
         return self.get_state(self._alarm_control_panel)
 
+    def is_time_in_alarm_home_window(self):
+        return self.now_is_between(self._alarm_arm_home_after_time, self._alarm_arm_home_before_time)
+
     def set_alarm_light_color(self, color_name="green", brightness_pct=100):
         for light in self._alarm_lights:
             self.call_service(
@@ -294,7 +318,7 @@ class AlarmSystem(hass.Hass):
             return
 
         for camera in self._cameras:
-            timestamp = str(time.now.strftime('%Y%m%d_%H%M%S%f'))
+            timestamp = str(datetime.datetime.now().strftime('%Y%m%d_%H%M%S%f'))
             filename = "{}/camera_snapshot_{}_{}.jpg".format(self._camera_snapshot_path, camera, timestamp)
             self.call_service("camera/snapshot", entity_id=camera, filename=filename)
 
@@ -307,6 +331,22 @@ class AlarmSystem(hass.Hass):
         self.log("Callback camera_snapshot_stored_callback from {}:{} {}".format(
             event_name, data['event_type'], data['path']))
 
+        # {
+#     "event_type": "folder_watcher",
+#     "data": {
+#         "event_type": "modified",
+#         "path": "/tmp/camera_doods_flur_unten_20190908_223303.jpg",
+#         "file": "camera_doods_flur_unten_20190908_223303.jpg",
+#         "folder": "/tmp"
+#     },
+#     "origin": "LOCAL",
+#     "time_fired": "2019-09-08T20:33:04.273143+00:00",
+#     "context": {
+#         "id": "7f43b291edba4b7cb818bd6c11fc937d",
+#         "parent_id": null,
+#         "user_id": null
+#     }
+# }
         if (data['folder'] != self._camera_snapshot_path):
             self.log("Ignoring file because its folder does not match the configured camera_snapshot_path")
             return
@@ -502,7 +542,7 @@ class AlarmSystem(hass.Hass):
                           entity_id=self._alarm_control_panel)
 
     def alarm_arm_away_button_callback(self, event_name, data, kwargs):
-        self.log("Callback alarm_arm_away_button_callback from {}:{} {}".format(
+        self.log("Callback alarm_arm_away_button from {}:{} {}".format(
             event_name, data['entity_id'], data['click_type']))
 
         if(self.is_alarm_disarmed() == False):
@@ -516,7 +556,7 @@ class AlarmSystem(hass.Hass):
                           entity_id=self._alarm_control_panel, code=self._alarm_pin)
 
     def alarm_disarm_button_callback(self, event_name, data, kwargs):
-        self.log("Callback alarm_disarm_button_callback from {}:{} {}".format(
+        self.log("Callback alarm_disarm_button from {}:{} {}".format(
             event_name, data['entity_id'], data['click_type']))
 
         if(self.is_alarm_disarmed()):
@@ -574,6 +614,64 @@ class AlarmSystem(hass.Hass):
         if(self.is_alarm_disarmed()):
             self.log("Ignoring status {} of {} because alarm system is in state {}".format(
                 new, entity, self.get_alarm_state()))
+            return
+
+        self.log("Calling service alarm_control_panel/alarm_disarm")
+
+        self.call_service("alarm_control_panel/alarm_disarm",
+                          entity_id=self._alarm_control_panel, code=self._alarm_pin)
+
+    def alarm_arm_home_auto_state_change_callback(self, entity, attribute, old, new, kwargs):
+        self.log(
+            "Callback alarm_arm_home_auto_device_change from {}:{} {}->{}".format(entity, attribute, old, new))
+        
+        self.alarm_arm_home_auto()
+
+    def alarm_arm_home_auto_timer_callback(self, kwargs):
+        self.log(
+            "Callback alarm_arm_home_auto_timer".format())
+
+        self.alarm_arm_home_auto()
+        
+    def alarm_disarm_home_auto_timer_callback(self, kwargs):
+        self.log(
+            "Callback alarm_disarm_home_auto_timer".format())
+
+        self.alarm_disarm_home_auto()
+
+    def alarm_arm_home_auto(self):
+        self.log("Running alarm_arm_home_auto")
+
+        if(self.is_alarm_disarmed() == False):
+            self.log("Ignoring because alarm system is in state {}".format(
+                self.get_alarm_state()))
+            return
+
+        if(self.count_not_home_device_trackers() > 0):
+            self.log("Ignoring because {} device_trackers are still away".format(
+                self.count_not_home_device_trackers()))
+            return
+
+        if(self.in_guest_mode()):
+            self.log("Ignoring because {} we have guests".format(
+                self.count_home_device_trackers()))
+            return
+
+        if(self.is_time_in_alarm_home_window() == False):
+            self.log("Ignoring because we are not within alarm home time window".format())
+            return            
+
+        self.log("Calling service alarm_control_panel/alarm_arm_home")
+
+        self.call_service("alarm_control_panel/alarm_arm_home",
+                          entity_id=self._alarm_control_panel, code=self._alarm_pin)
+
+    def alarm_disarm_home_auto(self):
+        self.log("Running alarm_disarm_home_auto")
+
+        if(self.is_alarm_armed_home() == False):
+            self.log("Ignoring because alarm system is in state {}".format(
+                self.get_alarm_state()))
             return
 
         self.log("Calling service alarm_control_panel/alarm_disarm")
