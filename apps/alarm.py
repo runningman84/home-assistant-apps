@@ -98,11 +98,11 @@ class AlarmSystem(hass.Hass):
 
         for button in self._alarm_control_buttons:
             self.listen_event(self.alarm_arm_home_button_callback,
-                              'click', entity_id=button, click_type="single")
+                              'xiaomi_aqara.click', entity_id=button, click_type="single")
             self.listen_event(self.alarm_disarm_button_callback,
-                              'click', entity_id=button, click_type="double")
+                              'xiaomi_aqara.click', entity_id=button, click_type="double")
             self.listen_event(self.alarm_arm_away_button_callback,
-                              'click', entity_id=button, click_type="long_click_press")
+                              'xiaomi_aqara.click', entity_id=button, click_type="long_click_press")
 
         # auto arm and disarm
         i = 0
