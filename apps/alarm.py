@@ -107,11 +107,12 @@ class AlarmSystem(hass.Hass):
         # auto arm and disarm
         i = 0
         for sensor in self._device_trackers:
-            self.listen_state(self.alarm_arm_away_auto_callback, sensor,
-                              new="not_home", duration=15 * 60 + i)
+            self.listen_state(self.alarm_arm_away_auto_callback, 
+                              sensor, new="not_home", old="home", duration=15 * 60 + i)
             self.listen_state(self.alarm_disarm_auto_callback,
-                              sensor, new="home", duration=i)
-            self.listen_state(self.alarm_arm_home_auto_state_change_callback, sensor, new="home", duration=15 * 60 + 1)
+                              sensor, new="home", old="not_home", duration=i)
+            self.listen_state(self.alarm_arm_home_auto_state_change_callback, 
+                              sensor, new="home", old="not_home", duration=15 * 60 + i)
             i += 1
 
         # Images
