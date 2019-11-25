@@ -24,6 +24,10 @@ silent_control | input boolean to mute the alarm sound | None
 alarm_volume_control | input_number for alarm volume | None
 info_volume_control | input_number for input volume | None
 xiaomi_aqara_gw_mac | xiaomi_aqara_gw_mac to play ringtones | None
+xiaomi_aqara_buttons | list of buttons to control (single click arm_away, double click disarm, long pres arm_home) | []
+xiaomi_aqara_trggered_ringtone_id | ringtone for state triggered | 2
+xiaomi_aqara_pending_ringtone_id | ringtone for state pending | 10
+xiaomi_aqara_disarmed_ringtone_id | ringtone for state disarmed | 11
 notify_service | script to call for notification | None
 notify_title | title parameter for script | AlarmSystem triggered, possible intruder
 cameras | List of cameras (snapshots will be made once alarm is triggered) | []
