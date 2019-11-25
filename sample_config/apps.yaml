@@ -19,10 +19,14 @@ alarm_system:
   armed_away_image_processing_sensors:
     - image_processing.doods_basement
     - image_processing.doods_kitchen
-  alarm_control_buttons:
+  xiaomi_aqara_buttons:
     - binary_sensor.switch_158d0001111111
     - binary_sensor.switch_158d0002222222
     - binary_sensor.switch_158d0003333333
+  alarm_control_buttons:
+    - sensor.0x00158d0001111111_click
+    - sensor.0x00158d0002222222_click
+    - sensor.0x00158d0003333333_click
   alarm_lights:
     - light.gateway_light_1111111
   alarm_pin: 1234
