@@ -5,7 +5,7 @@
 AlarmSystem
 ============
 
-The idea is to notify if an intrusion is detected. The system arms itself if all device_trackers are marked away and disarms if any device_tracker is back home. For me the system works perfectly without manual intervention. In order to allow baby sitters or other guest without residents you can enable a guest mode. The xiaomi aqara gateway can be integrated to play alarm sounds or flash lights.
+The idea is to notify if an intrusion is detected. The system arms itself if all device_trackers are marked away and disarms if any device_tracker is back home. For me the system works perfectly without manual intervention. In order to allow baby sitters or other guest without residents you can enable a guest mode.
 
 This system work with any light system (should support color) and with any sensors who report on/off values. I have tested it with xiaomi hub, sensors, buttons. Some disscusion can be found in the [forum](https://community.home-assistant.io/t/alarmsystem-with-appdaemon/31312)
 
@@ -21,6 +21,7 @@ fire_temperature_sensors | list of temperature sensors to monitor (like temperat
 armed_home_image_processing_sensors | list of image processing sensors to monitor in case you are home | []
 armed_away_image_processing_sensors | list of image processing sensors to monitor in case you are away | []
 alarm_control_buttons | list of buttons to control (single click arm_away, double click disarm, long pres arm_home) | []
+alarm_lights| list of lights to indicate alarm status (red is triggered, blinking is pending) | []
 alarm_arm_night_after_time | time to arm at evening | 23:15:00
 alarm_arm_night_before_time | time to disarm at morning | 06:00:00"
 sleep_after_time | start of sleeptime at evening | 23:15:00
