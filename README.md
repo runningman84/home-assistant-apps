@@ -23,9 +23,9 @@ armed_away_image_processing_sensors | list of image processing sensors to monito
 alarm_control_buttons | list of buttons to control (single click arm_away, double click disarm, long pres arm_home) | []
 alarm_lights| list of lights to indicate alarm status (red is triggered, blinking is pending) | []
 alarm_arm_night_after_time | time to arm at evening | 23:15:00
-alarm_arm_night_before_time | time to disarm at morning | 06:00:00"
+alarm_arm_night_before_time | time to disarm at morning | 06:00:00
 sleep_after_time | start of sleeptime at evening | 23:15:00
-sleep_before_time | end of sleeptime at morning | 06:00:00"
+sleep_before_time | end of sleeptime at morning | 06:00:00
 vacation_control | input boolean to configure a vacation mode which arms using armed_vacation | None
 guest_control | input boolean to configure a babysitter mode which does not auto arm | None
 silent_control | input boolean to mute the alarm sound | None
