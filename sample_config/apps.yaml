@@ -2,8 +2,8 @@ alarm_system:
   module: alarm
   class: AlarmSystem
   device_trackers:
-    - device_tracker.android_phone_bob
-    - device_tracker.android_phone_jon
+    - person.bob
+    - person.jon
   armed_home_binary_sensors:
     - binary_sensor.door_window_sensor_158d0001111111
     - binary_sensor.door_window_sensor_158d0001222222
@@ -20,9 +20,9 @@ alarm_system:
     - image_processing.doods_basement
     - image_processing.doods_kitchen
   alarm_control_buttons:
-    - binary_sensor.switch_158d0001111111
-    - binary_sensor.switch_158d0002222222
-    - binary_sensor.switch_158d0003333333
+    - sensor.corridor_downstairs_alarm_button_action
+    - sensor.master_bedroom_alarm_button_action
+    - sensor.office_alarm_button_action
   alarm_lights:
     - light.gateway_light_1111111
   alarm_pin: 1234
