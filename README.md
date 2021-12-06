@@ -11,30 +11,36 @@ This system work with any light system (should support color) and with any senso
 
 Key | Description | Default
 ------------ | ------------- | -------------
+language | language used for notifcations in text and audio | english
 device_trackers | list of tracked devices (for auto arming / disarming) | []
 armed_home_binary_sensors | list of binary sensors to monitor (like doors, motion, sensors) in case you are home | []
 armed_away_binary_sensors | list of binary sensors to monitor (like doors, motion, sensors) in case you are away | []
+water_binary_sensors | list of binary sensors to monitor (like water leakage sensors) all the time | []
+fire_binary_sensors | list of binary sensors to monitor (like water smoke sensors) all the time | []
+fire_temperature_sensors | list of temperature sensors to monitor (like temperature sensors) all the time | []
 armed_home_image_processing_sensors | list of image processing sensors to monitor in case you are home | []
 armed_away_image_processing_sensors | list of image processing sensors to monitor in case you are away | []
 alarm_control_buttons | list of buttons to control (single click arm_away, double click disarm, long pres arm_home) | []
-alarm_lights | list of lights to flash (red color for triggered alarm) | []
+alarm_arm_night_after_time | time to arm at evening | 23:15:00
+alarm_arm_night_before_time | time to disarm at morning | 06:00:00"
+sleep_after_time | start of sleeptime at evening | 23:15:00
+sleep_before_time | end of sleeptime at morning | 06:00:00"
 vacation_control | not used (tbd)
 guest_control | input boolean to configure a babysitter mode which does not auto arm | None
 silent_control | input boolean to mute the alarm sound | None
-alarm_volume_control | input_number for alarm volume | None
-info_volume_control | input_number for input volume | None
-xiaomi_aqara_gw_mac | xiaomi_aqara_gw_mac to play ringtones | None
+siren_switches | list of siren switches to turn on or off | []
 notify_service | script to call for notification | None
 notify_title | title parameter for script | AlarmSystem triggered, possible intruder
 cameras | List of cameras (snapshots will be made once alarm is triggered) | []
 camera_snapshot_path | Path for storing camera snapshots | /tmp
 camera_snapshot_regex | Regex for camera snapshots | "camera_.*\d+_\d+\.jpg"
+alexa_monkeys | list of alexa voice monkeys for audio notifications | []
 telegram_user_ids | list of telegram user ids used for notifications | []
 
 HeatSaver
 ============
 
-This app controls the temperature based on the opening and closing of windows/doors and some global control settings. Tt saves heating by lowering the thermostat if you are away or a window is open. 
+This app controls the temperature based on the opening and closing of windows/doors and some global control settings. Tt saves heating by lowering the thermostat if you are away or a window is open.
 
 Key | Description | Default
 ------------ | ------------- | -------------

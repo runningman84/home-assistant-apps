@@ -21,11 +21,18 @@ class PowerSaver(hass.Hass):
         self._motion_sensors = self.args.get("motion_sensors", [])
         self._device_trackers = self.args.get("device_trackers", [])
         self._power_controls = self.args.get("power_controls", [])
+        self._standby_sensors = self.args.get("standby_sensors", [])
         self._vacation_control = self.args.get("vacation_control", None)
         self._guest_control = self.args.get("guest_control", None)
         self._motion_duration = self.args.get("motion_duration", 60*60*2)
         self._tracker_duration = self.args.get("tracker_duration", 60*15)
         self._vacation_duration = self.args.get("vacation_duration", 60)
+        self._night_start = self.args.get("night_start", "01:30:00")
+        self._night_end = self.args.get("night_end", "06:30:00")
+        self._night_force_off = self.args.get("night_force_off", True)
+
+        self._standby_power_limit = self.args.get("standby_power_limit", 0)
+        self._standby_power_limit_last_seen = self.args.get("standby_power_limit", None)
 
         # log current config
         self.log("Got motion sensors {}".format(
@@ -57,6 +64,16 @@ class PowerSaver(hass.Hass):
             self.listen_state(self.power_off_presence_callback, self._vacation_control,
                               new="on", old="off", duration=self._vacation_duration)
 
+        # stop power each night
+        runtime = self.parse_time(self._night_start)
+        self.run_daily(self.power_off_auto_timer_callback, runtime)
+
+        # force stop power at night
+        if self._night_force_off:
+            for sensor in self._power_controls:
+                self.listen_state(self.power_off_night_callback, sensor,
+                                new="on", old="off")
+
     def count_motion(self, state):
         count = 0
         for sensor in self._motion_sensors:
@@ -83,6 +100,19 @@ class PowerSaver(hass.Hass):
     def count_not_home_device_trackers(self):
         return self.count_device_trackers("not_home")
 
+    def count_switches(self, state):
+        count = 0
+        for sensor in self._power_controls:
+            if self.get_state(sensor) == state:
+                count = count + 1
+        return count
+
+    def count_on_switches(self):
+        return self.count_switches("on")
+
+    def count_off_switches(self):
+        return self.count_switches("off")
+
     def in_guest_mode(self):
         if self._guest_control is None:
             return False
@@ -99,19 +129,40 @@ class PowerSaver(hass.Hass):
         else:
             return False
 
+    def turn_on_power(self):
+        for device_control in self._power_controls:
+            self.log("Turning on device {}".format(device_control))
+            self.turn_on(device_control)
+
+    def turn_off_power(self):
+        for device_control in self._power_controls:
+            self.log("Turning off device {}".format(device_control))
+            self.turn_off(device_control)
+
     def power_on_callback(self, entity, attribute, old, new, kwargs):
         self.log(
             "Callback power_on from {}:{} {}->{}".format(entity, attribute, old, new))
 
-        for device_control in self._power_controls:
-            self.turn_on(device_control)
+        if self.now_is_between(self._night_start, self._night_end):
+            self.log("Ignoring status {} of {} because night time".format(
+                new, entity), level = "DEBUG")
+            return
+
+        if(self.count_off_switches() == 0):
+            self.log("Ignoring callback because all switches are on", level = "DEBUG")
+            return
+
+        self.turn_on_power()
 
     def power_off_motion_callback(self, entity, attribute, old, new, kwargs):
         self.log(
             "Callback power_off_motion from {}:{} {}->{}".format(entity, attribute, old, new))
 
-        for device_control in self._power_controls:
-            self.turn_off(device_control)
+        if(self.count_on_switches() == 0):
+            self.log("Ignoring callback because all switches are off", level = "DEBUG")
+            return
+
+        self.turn_off_power()
 
     def power_off_presence_callback(self, entity, attribute, old, new, kwargs):
         self.log(
@@ -119,13 +170,34 @@ class PowerSaver(hass.Hass):
 
         if(self.count_home_device_trackers() > 0):
             self.log("Ignoring status {} of {} because {} device_trackers are still at home".format(
-                new, entity, self.count_home_device_trackers()))
+                new, entity, self.count_home_device_trackers()), level = "DEBUG")
             return
 
         if(self.in_guest_mode()):
             self.log("Ignoring status {} of {} because {} we have guests".format(
-                new, entity, self.count_home_device_trackers()))
+                new, entity, self.count_home_device_trackers()), level = "DEBUG")
             return
 
-        for device_control in self._power_controls:
-            self.turn_off(device_control)
+        self.turn_off_power()
+
+
+    def power_off_night_callback(self, entity, attribute, old, new, kwargs):
+        self.log(
+            "Callback power_off_night from {}:{} {}->{}".format(entity, attribute, old, new))
+
+        if self.now_is_between(self._night_start, self._night_end) == False:
+            self.log("Ignoring status {} of {} because day time".format(
+                new, entity), level = "DEBUG")
+            return
+
+        self.turn_off_power()
+
+    def power_off_auto_timer_callback(self, kwargs):
+        self.log(
+            "Callback power_off_auto_timer".format())
+
+        if(self.count_on_switches() == 0):
+            self.log("Ignoring callback because all switches are off", level = "DEBUG")
+            return
+
+        self.turn_off_power()

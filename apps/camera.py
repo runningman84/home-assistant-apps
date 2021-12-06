@@ -1,7 +1,4 @@
 import appdaemon.plugins.hass.hassapi as hass
-from datetime import datetime
-import time
-import os
 
 #
 # CameraImageScanner App
@@ -33,7 +30,7 @@ class CameraImageScanner(hass.Hass):
         self.log(
             "Callback trigger_image_scan_callback from {}:{} {}->{}".format(entity, attribute, old, new))
         self.start_image_processing()
-    
+
     def trigger_stop_image_scan_callback(self, entity, attribute, old, new, kwargs):
         self.log(
             "Callback trigger_stop_image_scan_callback from {}:{} {}->{}".format(entity, attribute, old, new))
@@ -58,19 +55,33 @@ class CameraImageScanner(hass.Hass):
     def count_off_sensors(self):
         return self.count_sensors("off")
 
+    def get_next_run_in_sec(self):
+        seconds = 1
+        if(self._processing_count < 1000):
+            seconds = 60
+        if(self._processing_count < 500):
+            seconds = 15
+        if(self._processing_count < 200):
+            seconds = 10
+        if(self._processing_count < 100):
+            seconds = 5
+        if(self._processing_count < 60):
+            seconds = 2
+        return seconds
+
     def process_image(self, kwargs):
         self.call_service(
                 "image_processing/scan", entity_id=self._image_processor)
         self._processing_count += 1
         self.log("Image processing count {}".format(self._processing_count))
         if self._processing_count < self._processing_max_count:
-            self._processing_handle = self.run_in(self.process_image, 1)
+            self._processing_handle = self.run_in(self.process_image, self.get_next_run_in_sec())
 
     def start_image_processing(self):
         self.stop_image_processing()
         self._processing_count = 0
         self.log("Starting image processing")
-        self._processing_handle = self.run_in(self.process_image, 1)
+        self._processing_handle = self.run_in(self.process_image, self.get_next_run_in_sec())
 
     def stop_image_processing(self):
         if self._processing_handle is not None:
