@@ -850,7 +850,7 @@ class AlarmSystem(hass.Hass):
             self.log("Ignoring because home is in guest mode")
             return
 
-        if(self.in_vacation_mode()()):
+        if(self.in_vacation_mode()):
             self.log("Ignoring because home is in vacation mode")
             return
 
@@ -884,7 +884,7 @@ class AlarmSystem(hass.Hass):
             self.log("Ignoring because home is in guest mode")
             return
 
-        if(self.in_vacation_mode()()):
+        if(self.in_vacation_mode()):
             self.log("Ignoring because home is in vacation mode")
             return
 
