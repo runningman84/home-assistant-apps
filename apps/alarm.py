@@ -163,7 +163,7 @@ class AlarmSystem(hass.Hass):
                           self.__alarm_control_panel, new="armed_vacation")
         self.listen_state(self.alarm_state_armed_home_callback,
                           self.__alarm_control_panel, new="armed_home")
-        self.listen_state(self.alarm_state_armed_home_callback,
+        self.listen_state(self.alarm_state_armed_night_callback,
                           self.__alarm_control_panel, new="armed_night")
 
         for sensor in self.__alarm_control_buttons:
@@ -631,6 +631,19 @@ class AlarmSystem(hass.Hass):
         self.set_alarm_light_color_based_on_state()
 
         msg = self.translate("alarm_system_armed_home")
+        self.notify(msg, prio=1)
+
+    def alarm_state_armed_night_callback(self, entity, attribute, old, new, kwargs):
+        self.log(
+            "Callback alarm_state_armed_home from {}:{} {}->{}".format(entity, attribute, old, new))
+
+        self.stop_flash_warning()
+        self.start_camera_snapshot("alarm_state_armed_night", 10, 60)
+        self.stop_sensor_listeners()
+        self.start_armed_home_binary_sensor_listeners()
+        self.set_alarm_light_color_based_on_state()
+
+        msg = self.translate("alarm_system_armed_night")
         self.notify(msg, prio=1)
 
     def trigger_alarm_while_armed_away_callback(self, entity, attribute, old, new, kwargs):
