@@ -720,7 +720,7 @@ class AlarmSystem(hass.Hass):
 
         self.set_alarm_type('water')
 
-        msg = self.translate("water_alert").format(self.get_state(entity, attribute = "friendly_name"))
+        msg = self.translate("water_leak_alert").format(self.get_state(entity, attribute = "friendly_name"))
         self.notify(msg)
 
         self.log("Calling service alarm_control_panel/alarm_trigger")
