@@ -50,6 +50,7 @@ class AlarmSystem(hass.Hass):
         self.__alexa_monkeys = self.args.get("alexa_monkeys",[])
         # cameras
         self.__cameras = self.args.get("cameras", [])
+        self.__camera_folder_watcher = self.args.get("camera_folder_watcher", False)
         self.__camera_snapshot_path = self.args.get("camera_snapshot_path", '/tmp')
         self.__camera_snapshot_regex = self.args.get("camera_snapshot_regex", "camera_.*\\d+_\\d+\\.jpg")
         # sirens
@@ -66,7 +67,7 @@ class AlarmSystem(hass.Hass):
         self.__language = self.args.get("language","english")
         self.__translation = {
             "german" : {
-                "intruder_alert": "Achtung Einbruchsalarm, Sensor {} wurde ausglöst",
+                "intruder_alert": "Achtung Einbruchsalarm, Sensor {} wurde ausgelöst",
                 "fire_alert": "Achtung Feueralarm, Sensor {} wurde ausglöst",
                 "fire_temperature_alert": "Achtung Feueralarm, Sensor {} hat eine kritische Temperatur von {} Grad erreicht",
                 "water_leak_alert": "Achtung Wasserleck, Sensor {} wurde ausgelöst",
@@ -80,7 +81,7 @@ class AlarmSystem(hass.Hass):
                 "auto_arm_away_person": "Achtung Alarmanlage im Modus Abwesend wird automatisch scharf geschaltet, {} hat das Haus verlassen",
                 "auto_arm_vacation_schedule": "Achtung Alarmanlage im Modus Urlaub wird nach Zeitplan automatisch aktiviert",
                 "auto_arm_vacation_person": "Achtung Alarmanlage im Modus Urlaub wird automatisch scharf geschaltet, {} hat das Haus verlassen",
-                "auto_disarm_person": "Achtung Alarmanlage wird automatisch dekativiert, {} hat das Haus betreten",
+                "auto_disarm_person": "Achtung Alarmanlage wird automatisch deaktiviert, {} hat das Haus betreten",
                 "auto_disarm_schedule": "Achtung Alarmanlage wird nach Zeitplan automatisch deaktiviert",
                 "alarm_system_state": "Achtung Alarmanlage Status wurde verändert von {} in {}",
                 "alarm_system_triggered": "Achtung Alarmanlage wurde ausgelöst",
@@ -186,7 +187,8 @@ class AlarmSystem(hass.Hass):
             i += 1
 
         # Images
-        self.listen_event(self.camera_snapshot_stored_callback, 'folder_watcher', event_type="created")
+        if self.__camera_folder_watcher:
+            self.listen_event(self.camera_snapshot_stored_callback, 'folder_watcher', event_type="created")
 
         self.__flash_warning_handle = None
         self.__camera_snapshot_handle = None
@@ -417,7 +419,7 @@ class AlarmSystem(hass.Hass):
             return None
         return self.get_state(self.__alarm_control_panel)
 
-    def is_time_in_alarm_night_window(self):
+    def is_time_in_arm_night_window(self):
         return self.now_is_between(self.__alarm_arm_night_after_time, self.__alarm_arm_night_before_time)
 
     def is_time_in_sleep_window(self):
@@ -650,13 +652,13 @@ class AlarmSystem(hass.Hass):
         self.log(
             "Callback trigger_alarm_while_armed_away from {}:{} {}->{}".format(entity, attribute, old, new))
 
-        if(self.is_alarm_armed_away() == False):
-            self.log("Ignoring status {} of {} because alarm system is in state {}".format(
+        if(self.is_alarm_armed_away() == False and self.is_alarm_armed_vacation() == False):
+            self.log("Ignoring state {} of {} because alarm system is in state {}".format(
                 new, entity, self.get_alarm_state()))
             return
 
         if(self.count_home_device_trackers() > 0):
-            self.log("Ignoring status {} of {} because {} device_trackers are still at home".format(
+            self.log("Ignoring state {} of {} because {} device_trackers are still at home".format(
                 new, entity, self.count_home_device_trackers()))
             return
 
@@ -674,8 +676,8 @@ class AlarmSystem(hass.Hass):
         self.log(
             "Callback trigger_alarm_while_armed_home from {}:{} {}->{}".format(entity, attribute, old, new))
 
-        if(self.is_alarm_armed_home() == False):
-            self.log("Ignoring status {} of {} because alarm system is in state {}".format(
+        if(self.is_alarm_armed_home() == False and self.is_alarm_armed_night() == False):
+            self.log("Ignoring state {} of {} because alarm system is in state {}".format(
                 new, entity, self.get_alarm_state()))
             return
 
@@ -708,12 +710,12 @@ class AlarmSystem(hass.Hass):
             "Callback trigger_alarm_fire_temperature from {}:{} {}->{}".format(entity, attribute, old, new))
 
         if(new == 'unknown' or new == 'unavailable'):
-            self.log("Ignoring status {} of {}".format(
+            self.log("Ignoring state {} of {}".format(
                 new, entity))
             return
 
         if(float(new) < self.__fire_temperature_threshold):
-            self.log("Ignoring status {} of {} because value is below treshhold {}".format(
+            self.log("Ignoring state {} of {} because value is below treshhold {}".format(
                 new, entity, self.__fire_temperature_threshold))
             return
 
@@ -746,7 +748,7 @@ class AlarmSystem(hass.Hass):
             "Callback button_arm_away from {}:{} {}->{}".format(entity, attribute, old, new))
 
         if(self.is_alarm_disarmed() == False):
-            self.log("Ignoring status {} of {} because alarm system is in state {}".format(
+            self.log("Ignoring state {} of {} because alarm system is in state {}".format(
                 new, entity, self.get_alarm_state()))
             return
 
@@ -767,7 +769,7 @@ class AlarmSystem(hass.Hass):
             "Callback button_arm_home from {}:{} {}->{}".format(entity, attribute, old, new))
 
         if(self.is_alarm_disarmed() == False):
-            self.log("Ignoring status {} of {} because alarm system is in state {}".format(
+            self.log("Ignoring state {} of {} because alarm system is in state {}".format(
                 new, entity, self.get_alarm_state()))
             return
 
@@ -784,7 +786,7 @@ class AlarmSystem(hass.Hass):
             "Callback button_disarm from {}:{} {}->{}".format(entity, attribute, old, new))
 
         if(self.is_alarm_disarmed()):
-            self.log("Ignoring status {} of {} because alarm system is in state {}".format(
+            self.log("Ignoring state {} of {} because alarm system is in state {}".format(
                 new, entity, self.get_alarm_state()))
             return
 
@@ -803,17 +805,18 @@ class AlarmSystem(hass.Hass):
             "Callback alarm_arm_away_auto from {}:{} {}->{}".format(entity, attribute, old, new))
 
         if(self.is_alarm_disarmed() == False):
-            self.log("Ignoring status {} of {} because alarm system is in state {}".format(
+            self.log("Ignoring state {} of {} because alarm system is in state {}".format(
                 new, entity, self.get_alarm_state()))
             return
 
         if(self.count_home_device_trackers() > 0):
-            self.log("Ignoring status {} of {} because {} device_trackers are still at home".format(
+            self.log("Ignoring state {} of {} because {} device_trackers are still at home".format(
                 new, entity, self.count_home_device_trackers()))
             return
 
         if(self.in_guest_mode()):
-            self.log("Ignoring because home is in guest mode")
+            self.log("Ignoring state {} of {} because home is in guest mode".format(
+                new, entity))
             return
 
         mode = "arm_away"
@@ -833,7 +836,7 @@ class AlarmSystem(hass.Hass):
             "Callback alarm_disarm_auto from {}:{} {}->{}".format(entity, attribute, old, new))
 
         if(self.is_alarm_disarmed()):
-            self.log("Ignoring status {} of {} because alarm system is in state {}".format(
+            self.log("Ignoring state {} of {} because alarm system is in state {}".format(
                 new, entity, self.get_alarm_state()))
             return
 
@@ -850,25 +853,28 @@ class AlarmSystem(hass.Hass):
             "Callback alarm_arm_night_auto_state_change from {}:{} {}->{}".format(entity, attribute, old, new))
 
         if(self.is_alarm_disarmed() == False):
-            self.log("Ignoring because alarm system is in state {}".format(
-                self.get_alarm_state()))
+            self.log("Ignoring state {} of {} because alarm system is in state {}".format(
+                new, entity, self.get_alarm_state()))
             return
 
         if(self.count_home_device_trackers() == 0):
-            self.log("Ignoring because all {} device_trackers are still away".format(
-                self.count_not_home_device_trackers()))
+            self.log("Ignoring state {} of {} because all {} device_trackers are still away".format(
+                new, entity, self.count_not_home_device_trackers()))
             return
 
         if(self.in_guest_mode()):
-            self.log("Ignoring because home is in guest mode")
+            self.log("Ignoring state {} of {} because home is in guest mode".format(
+                new, entity))
             return
 
         if(self.in_vacation_mode()):
-            self.log("Ignoring because home is in vacation mode")
+            self.log("Ignoring state {} of {} because home is in vacation mode".format(
+                new, entity))
             return
 
-        if(self.is_time_in_alarm_night_window() == False):
-            self.log("Ignoring because we are not within alarm night time window".format())
+        if(self.is_time_in_arm_night_window() == False):
+            self.log("Ignoring state {} of {} because we are not within arm night time window".format(
+                new, entity))
             return
 
         msg = self.translate("auto_arm_night_person").format(self.get_state(entity, attribute = "friendly_name"))
@@ -884,25 +890,25 @@ class AlarmSystem(hass.Hass):
             "Callback alarm_arm_night_auto_timer".format())
 
         if(self.is_alarm_disarmed() == False):
-            self.log("Ignoring because alarm system is in state {}".format(
+            self.log("Ignoring arm night timer because alarm system is in state {}".format(
                 self.get_alarm_state()))
             return
 
         if(self.count_home_device_trackers() == 0):
-            self.log("Ignoring because all {} device_trackers are still away".format(
+            self.log("Ignoring arm night timer because all {} device_trackers are still away".format(
                 self.count_not_home_device_trackers()))
             return
 
         if(self.in_guest_mode()):
-            self.log("Ignoring because home is in guest mode")
+            self.log("Ignoring arm night timer because home is in guest mode")
             return
 
         if(self.in_vacation_mode()):
-            self.log("Ignoring because home is in vacation mode")
+            self.log("Ignoring arm night timer because home is in vacation mode")
             return
 
-        if(self.is_time_in_alarm_night_window() == False):
-            self.log("Ignoring because we are not within alarm home time window".format())
+        if(self.is_time_in_arm_night_window() == False):
+            self.log("Ignoring arm night timer because we are not within arm home time window".format())
             return
 
         msg = self.translate("auto_arm_night_schedule")
@@ -918,7 +924,7 @@ class AlarmSystem(hass.Hass):
             "Callback alarm_disarm_night_auto_timer".format())
 
         if(self.is_alarm_armed_night() == False):
-            self.log("Ignoring because alarm system is in state {}".format(
+            self.log("Ignoring disarm night timer because alarm system is in state {}".format(
                 self.get_alarm_state()))
             return
 
