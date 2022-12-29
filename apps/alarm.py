@@ -68,7 +68,7 @@ class AlarmSystem(hass.Hass):
         self.__translation = {
             "german" : {
                 "intruder_alert": "Achtung Einbruchsalarm, Sensor {} wurde ausgelöst",
-                "fire_alert": "Achtung Feueralarm, Sensor {} wurde ausglöst",
+                "fire_alert": "Achtung Feueralarm, Sensor {} wurde ausgelöst",
                 "fire_temperature_alert": "Achtung Feueralarm, Sensor {} hat eine kritische Temperatur von {} Grad erreicht",
                 "water_leak_alert": "Achtung Wasserleck, Sensor {} wurde ausgelöst",
                 "system_start": "Homeassistant System gestartet",
