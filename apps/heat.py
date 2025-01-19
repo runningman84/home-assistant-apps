@@ -158,7 +158,7 @@ class HeatSaver(hass.Hass):
         return vars(self)['_' + self.get_current_status() + '_hvac_mode']
 
     def get_current_temperature(self, entity_id):
-        value = self.get_state(entity_id, attribute = "temperature")
+        value = self.get_state(entity_id, attribute = "temperature")        
         if value == None:
             return 0
         if value == 'unknown':

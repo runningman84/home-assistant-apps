@@ -71,7 +71,7 @@ class PowerSaver(hass.Hass):
         # force stop power at night
         if self._night_force_off:
             for sensor in self._power_controls:
-                self.listen_state(self.power_off_night_callback, sensor,
+                self.listen_state(self.power_off_force_callback, sensor,
                                 new="on", old="off")
 
     def count_motion(self, state):
@@ -162,6 +162,10 @@ class PowerSaver(hass.Hass):
             self.log("Ignoring callback because all switches are off", level = "DEBUG")
             return
 
+        if(self.count_on_motion() > 0):
+            self.log("Ignoring callback because there is still motion", level = "DEBUG")
+            return
+
         self.turn_off_power()
 
     def power_off_presence_callback(self, entity, attribute, old, new, kwargs):
@@ -178,10 +182,13 @@ class PowerSaver(hass.Hass):
                 new, entity, self.count_home_device_trackers()), level = "DEBUG")
             return
 
+        if(self.count_on_motion() > 0):
+            self.log("Ignoring callback because there is still motion", level = "DEBUG")
+            return
+
         self.turn_off_power()
 
-
-    def power_off_night_callback(self, entity, attribute, old, new, kwargs):
+    def power_off_force_callback(self, entity, attribute, old, new, kwargs):
         self.log(
             "Callback power_off_night from {}:{} {}->{}".format(entity, attribute, old, new))
 
@@ -198,6 +205,10 @@ class PowerSaver(hass.Hass):
 
         if(self.count_on_switches() == 0):
             self.log("Ignoring callback because all switches are off", level = "DEBUG")
+            return
+
+        if(self.count_on_motion() >= 0):
+            self.log("Ignoring callback because there is still motion", level = "DEBUG")
             return
 
         self.turn_off_power()

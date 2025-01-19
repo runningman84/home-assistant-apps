@@ -20,9 +20,9 @@ alarm_system:
     - image_processing.doods_basement
     - image_processing.doods_kitchen
   alarm_control_buttons:
-    - sensor.corridor_downstairs_alarm_button_action
-    - sensor.master_bedroom_alarm_button_action
-    - sensor.office_alarm_button_action
+    - event.corridor_downstairs_alarm_button_action
+    - event.master_bedroom_alarm_button_action
+    - event.office_alarm_button_action
   alarm_lights:
     - light.gateway_light_1111111
   alarm_pin: 1234
@@ -31,7 +31,6 @@ alarm_system:
   silent_control: input_boolean.silent_mode
   alarm_volume_control: input_number.xiaomi_alarm_volume
   info_volume_control: input_number.xiaomi_info_volume
-  xiaomi_aqara_gw_mac: f00000000
   notify_service: script/send_status_report_bob
   notify_title: "Intruder Alert"
 guard_dog:
@@ -104,3 +103,15 @@ light_saver_office:
   night_scene: scene.office_light_night
   vacation_control: input_boolean.vacation_mode
   guest_control: input_boolean.guest_mode
+light_switch_bob:
+  module: light_switch
+  class: LightSwitch
+  lights:
+    - light.kids_room_bob_bed_light
+    - light.kids_room_bob_desk_light
+  lights_left:
+    - light.kids_room_bob_bed_light
+  lights_right:
+    - light.kids_room_bob_desk_light
+  remotes:
+    - event.kids_room_bob_remote_action

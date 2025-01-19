@@ -68,12 +68,26 @@ class LightSaver(hass.Hass):
             self.listen_state(self.motion_on_callback, sensor,
                               new="on", old="off")
 
+        # stop power if nobody is home
+        for sensor in self._device_trackers:
+            self.listen_state(self.power_off_presence_callback,
+                              sensor, new="not_home", old="home", duration=self._tracker_duration)
+
+        # stop power during vacation
+        if self._vacation_control is not None:
+            self.listen_state(self.power_off_presence_callback, self._vacation_control,
+                              new="on", old="off", duration=self._vacation_duration)
+
         # start power based on illumination
         for sensor in self._illumination_sensors:
             self.listen_state(self.illumination_change_callback, sensor)
 
         # start or stop power based on elevation
         self.listen_state(self.elevation_change_callback, "sun.sun", attribute = "elevation")
+
+        if(self.count_on_motion() == 0):
+            self.turn_off_lights()
+            self.stop_fluxer()
 
         if(self.count_on_motion() > 0 and self.below_min_illumination()):
             self.turn_on_lights()
@@ -152,6 +166,12 @@ class LightSaver(hass.Hass):
 
     def is_alarm_armed_home(self):
         return self.is_alarm_in_state('armed_home')
+
+    def is_alarm_armed_night(self):
+        return self.is_alarm_in_state('armed_night')
+
+    def is_alarm_armed_vacation(self):
+        return self.is_alarm_in_state('armed_vacation')
 
     def is_alarm_disarmed(self):
         return self.is_alarm_in_state('disarmed')
@@ -279,6 +299,10 @@ class LightSaver(hass.Hass):
         self.log(
             "Callback motion_off from {}:{} {}->{}".format(entity, attribute, old, new))
 
+        if(self.count_on_motion() > 0):
+            self.log("Ignoring callback because there is still motion", level = "DEBUG")
+            return
+
         self.turn_off_lights()
 
     def illumination_change_callback(self, entity, attribute, old, new, kwargs):
@@ -310,6 +334,24 @@ class LightSaver(hass.Hass):
 
         if(self.below_min_elevation()):
             self.turn_on_lights()
+
+    def power_off_presence_callback(self, entity, attribute, old, new, kwargs):
+        self.log(
+            "Callback power_off_presence from {}:{} {}->{}".format(entity, attribute, old, new))
+
+        if(self.count_home_device_trackers() > 0):
+            self.log("Ignoring status {} of {} because {} device_trackers are still at home".format(
+                new, entity, self.count_home_device_trackers()), level = "DEBUG")
+            return
+
+        if(self.in_guest_mode()):
+            self.log("Ignoring status {} of {} because {} we have guests".format(
+                new, entity, self.count_home_device_trackers()), level = "DEBUG")
+            return
+
+        self.turn_off_power()
+
+
 
     def update_fluxer(self, kwargs):
         if self._fluxer_switch == None:

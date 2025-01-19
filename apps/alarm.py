@@ -48,6 +48,7 @@ class AlarmSystem(hass.Hass):
         self.__telegram_user_ids = self.args.get("telegram_user_ids",[])
         self.__alexa_media_devices = self.args.get("alexa_media_devices",[])
         self.__alexa_monkeys = self.args.get("alexa_monkeys",[])
+        self.__tts_devices = self.args.get("tts_devices",[])
         # cameras
         self.__cameras = self.args.get("cameras", [])
         self.__camera_folder_watcher = self.args.get("camera_folder_watcher", False)
@@ -68,11 +69,11 @@ class AlarmSystem(hass.Hass):
         self.__translation = {
             "german" : {
                 "intruder_alert": "Achtung Einbruchsalarm, Sensor {} wurde ausgelöst",
-                "fire_alert": "Achtung Feueralarm, Sensor {} wurde ausgelöst",
+                "fire_alert": "Achtung Feueralarm, Sensor {} wurde ausglöst",
                 "fire_temperature_alert": "Achtung Feueralarm, Sensor {} hat eine kritische Temperatur von {} Grad erreicht",
                 "water_leak_alert": "Achtung Wasserleck, Sensor {} wurde ausgelöst",
                 "system_start": "Homeassistant System gestartet",
-                "button_disarm": "Achtung, Schalter {} gedrückt, Alarmanlage wird deaktiviert",
+                "button_disarm": "Achtung, Schalter {} gedrückt, Alarmanlage wird ausgeschaltet",
                 "button_arm_home": "Achtung, Schalter {} gedrückt, Alarmanlage im Modus Zuhause wird aktiviert",
                 "button_arm_away": "Achtung, Schalter {} gedrückt, Alarmanlage im Modus Abwsendet wird aktiviert",
                 "auto_arm_night_schedule": "Achtung Alarmanlage im Modus Nacht wird nach Zeitplan automatisch aktiviert",
@@ -81,12 +82,12 @@ class AlarmSystem(hass.Hass):
                 "auto_arm_away_person": "Achtung Alarmanlage im Modus Abwesend wird automatisch scharf geschaltet, {} hat das Haus verlassen",
                 "auto_arm_vacation_schedule": "Achtung Alarmanlage im Modus Urlaub wird nach Zeitplan automatisch aktiviert",
                 "auto_arm_vacation_person": "Achtung Alarmanlage im Modus Urlaub wird automatisch scharf geschaltet, {} hat das Haus verlassen",
-                "auto_disarm_person": "Achtung Alarmanlage wird automatisch deaktiviert, {} hat das Haus betreten",
-                "auto_disarm_schedule": "Achtung Alarmanlage wird nach Zeitplan automatisch deaktiviert",
+                "auto_disarm_person": "Achtung Alarmanlage wird automatisch ausgeschaltet, {} hat das Haus betreten",
+                "auto_disarm_schedule": "Achtung Alarmanlage wird nach Zeitplan automatisch ausgeschaltet",
                 "alarm_system_state": "Achtung Alarmanlage Status wurde verändert von {} in {}",
                 "alarm_system_triggered": "Achtung Alarmanlage wurde ausgelöst",
                 "alarm_system_armed": "Achtung Alarmanlage ist scharf geschaltet",
-                "alarm_system_disarmed": "Achtung Alarmanlage ist deaktiviert",
+                "alarm_system_disarmed": "Achtung Alarmanlage ist ausgeschaltet",
                 "alarm_system_armed_home": "Achtung Alarmanlage im Modus Zuhause ist scharf geschaltet",
                 "alarm_system_armed_away": "Achtung Alarmanlage im Modus Abwesend ist scharf geschaltet",
                 "alarm_system_armed_night": "Achtung Alarmanlage im Modus Nacht ist scharf geschaltet",
@@ -133,8 +134,8 @@ class AlarmSystem(hass.Hass):
         self.log("Got device trackers {}".format(self.__device_trackers))
         self.log("Got {} device_trackers home and {} device_trackers not home".format(
             self.count_home_device_trackers(), self.count_not_home_device_trackers()))
-        self.log("Got guest_mode {}".format(self.in_guest_mode()))
-        self.log("Got vacation_mode {}".format(self.in_vacation_mode()))
+        self.log("Got guest mode {}".format(self.in_guest_mode()))
+        self.log("Got vacation mode {}".format(self.in_vacation_mode()))
         self.log("Got silent mode {}".format(self.in_silent_mode()))
         self.log("Got info volume {}".format(self.get_info_volume()))
         self.log("Got alarm volume {}".format(self.get_alarm_volume()))
@@ -168,22 +169,29 @@ class AlarmSystem(hass.Hass):
                           self.__alarm_control_panel, new="armed_night")
 
         for sensor in self.__alarm_control_buttons:
-            self.listen_state(self.button_arm_home_callback,
-                              sensor, new="single")
-            self.listen_state(self.button_disarm_callback,
-                              sensor, new="double")
-            self.listen_state(self.button_arm_away_callback,
-                              sensor, new="long")
+            #self.listen_event(self.event_test_callback, sensor, )
+
+            #self.listen_state(self.button_arm_home_callback,
+            #                  sensor, new="single")
+            #self.listen_state(self.button_disarm_callback,
+            #                  sensor, new="double")
+            #self.listen_state(self.button_arm_away_callback,
+            #                  sensor, new="long")
+
+            self.listen_event(self.alarm_button_callback, entity_id=sensor, event_type="state_changed", event="state_changed")
+
+
+
 
         # auto arm and disarm
         i = 0
         for sensor in self.__device_trackers:
             self.listen_state(self.alarm_arm_away_auto_callback,
-                              sensor, old="home", duration=15 * 60 + i)
+                              sensor, old="home", duration=5 * 60 + i)
             self.listen_state(self.alarm_disarm_auto_callback,
                               sensor, new="home", duration=i)
             self.listen_state(self.alarm_arm_night_auto_state_change_callback,
-                              sensor, new="home", duration=15 * 60 + i)
+                              sensor, new="home", duration=5 * 60 + i)
             i += 1
 
         # Images
@@ -363,6 +371,16 @@ class AlarmSystem(hass.Hass):
                 self.log("Calling service rest_command/trigger_monkey with monkey {} and message: {}".format(monkey, msg))
                 self.call_service(
                     "rest_command/trigger_monkey", announcement=msg, monkey=monkey)
+
+        if len(self.__tts_devices) > 0:
+            language = 'en-US'
+            if self.__language == 'german':
+                language = 'de-DE'
+            for device in self.__tts_devices:
+                self.log("Calling service tts/picotts_say with device {} and message: {}".format(device, msg))
+                self.call_service(
+                    "tts/picotts_say", message=msg, entity_id=device, language=language)
+
 
     # def notify_mobile_app(self, msg, title=None):
 
@@ -743,13 +761,38 @@ class AlarmSystem(hass.Hass):
         self.call_service("alarm_control_panel/alarm_trigger",
                           entity_id=self.__alarm_control_panel)
 
-    def button_arm_away_callback(self, entity, attribute, old, new, kwargs):
+    def debug_event(self, event_name, data, kwargs):
         self.log(
-            "Callback button_arm_away from {}:{} {}->{}".format(entity, attribute, old, new))
+            "Debug event {}:{} {}".format(event_name, data, kwargs))
+
+    def alarm_button_callback(self, event_name, data, kwargs):
+        #self.debug(
+        #    "Callback alarm_button_callback from event {}:{} {}".format(event_name, data, kwargs))
+
+        # entity_id
+        #self.log(data['new_state']['attributes']['event_type'])
+
+        event_type = data['new_state']['attributes']['event_type']
+        entity_id = data['entity_id']
+
+        self.log("Callback alarm_button_callback from event {}:{}".format(entity_id, event_type))
+
+        if event_type == "single":
+            self.button_arm_home(entity_id)
+        elif event_type == "double":
+            self.button_arm_away(entity_id)
+        elif event_type == "triple":
+            self.button_disarm(entity_id)
+        elif event_type == "hold":
+            self.button_trigger_alarm(entity_id)
+        else:
+            self.log("Ignoring event")
+
+    def button_arm_away(self, entity):
 
         if(self.is_alarm_disarmed() == False):
-            self.log("Ignoring state {} of {} because alarm system is in state {}".format(
-                new, entity, self.get_alarm_state()))
+            self.log("Ignoring call because alarm system is in state {}".format(
+                self.get_alarm_state()))
             return
 
         mode = "arm_away"
@@ -764,13 +807,11 @@ class AlarmSystem(hass.Hass):
         self.call_service("alarm_control_panel/alarm_{}".format(mode),
                           entity_id=self.__alarm_control_panel, code=self.__alarm_pin)
 
-    def button_arm_home_callback(self, entity, attribute, old, new, kwargs):
-        self.log(
-            "Callback button_arm_home from {}:{} {}->{}".format(entity, attribute, old, new))
+    def button_arm_home(self, entity):
 
         if(self.is_alarm_disarmed() == False):
-            self.log("Ignoring state {} of {} because alarm system is in state {}".format(
-                new, entity, self.get_alarm_state()))
+            self.log("Ignoring call because alarm system is in state {}".format(
+                self.get_alarm_state()))
             return
 
         msg = self.translate("button_arm_home").format(self.get_state(entity, attribute = "friendly_name"))
@@ -781,13 +822,11 @@ class AlarmSystem(hass.Hass):
         self.call_service("alarm_control_panel/alarm_arm_home",
                           entity_id=self.__alarm_control_panel, code=self.__alarm_pin)
 
-    def button_disarm_callback(self, entity, attribute, old, new, kwargs):
-        self.log(
-            "Callback button_disarm from {}:{} {}->{}".format(entity, attribute, old, new))
+    def button_disarm(self, entity):
 
         if(self.is_alarm_disarmed()):
-            self.log("Ignoring state {} of {} because alarm system is in state {}".format(
-                new, entity, self.get_alarm_state()))
+            self.log("Ignoring call because alarm system is in state {}".format(
+                self.get_alarm_state()))
             return
 
         self.set_alarm_type(None)
@@ -799,6 +838,19 @@ class AlarmSystem(hass.Hass):
 
         self.call_service("alarm_control_panel/alarm_disarm",
                           entity_id=self.__alarm_control_panel, code=self.__alarm_pin)
+
+    def button_trigger_alarm(self, entity):
+        self.log("Trigger arlarm")
+
+        self.set_alarm_type('intruder')
+
+        msg = self.translate("intruder_alert").format(self.get_state(entity, attribute = "friendly_name"))
+        self.notify(msg)
+
+        self.log("Calling service alarm_control_panel/alarm_trigger")
+
+        self.call_service("alarm_control_panel/alarm_trigger",
+                          entity_id=self.__alarm_control_panel)
 
     def alarm_arm_away_auto_callback(self, entity, attribute, old, new, kwargs):
         self.log(
@@ -935,4 +987,3 @@ class AlarmSystem(hass.Hass):
 
         self.call_service("alarm_control_panel/alarm_disarm",
                           entity_id=self.__alarm_control_panel, code=self.__alarm_pin)
-
