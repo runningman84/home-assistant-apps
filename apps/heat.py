@@ -1,4 +1,5 @@
 import appdaemon.plugins.hass.hassapi as hass
+from datetime import datetime, timezone
 
 #
 # HeatSaver App
@@ -28,7 +29,7 @@ class HeatSaver(hass.Hass):
         self._motion_temperature = self.args.get("motion_temperature", 21)
         self._motion_temperature_control = self.args.get("motion_temperature_control", None)
         self._motion_hvac_mode = self.args.get("motion_hvac_mode", "heat")
-        self._motion_timeout = self.args.get("motion_timeout", 300)
+        self._motion_duration = self.args.get("motion_duration", 300)
         self._home_temperature = self.args.get("home_temperature", 20)
         self._home_temperature_control = self.args.get("home_temperature_control", None)
         self._home_hvac_mode = self.args.get("home_hvac_mode", "heat")
@@ -103,7 +104,7 @@ class HeatSaver(hass.Hass):
         # start heating for motion events
         for sensor in self._motion_sensors:
             self.listen_state(self.change_heater_callback, sensor,
-                              new="off", old="on", duration=self._motion_timeout)
+                              new="off", old="on", duration=self._motion_duration)
             self.listen_state(self.change_heater_callback, sensor,
                               new="on", old="off")
 
@@ -169,6 +170,8 @@ class HeatSaver(hass.Hass):
         for sensor in self._motion_sensors:
             if self.get_state(sensor) == state:
                 count = count + 1
+            elif self.get_seconds_since_update(sensor) < self._motion_duration:
+                count = count + 1
         return count
 
     def count_on_motion_sensors(self):
@@ -176,6 +179,25 @@ class HeatSaver(hass.Hass):
 
     def count_off_motion_sensors(self):
         return self.count_motion_sensors("off")
+
+    def get_seconds_since_update(self, entity):
+        last_updated_str = self.get_state(entity, attribute="last_updated")
+
+        if last_updated_str:
+            # Convert ISO string to datetime object
+            last_updated = datetime.fromisoformat(last_updated_str.replace("Z", "+00:00"))
+
+            # Get current time in UTC
+            now = datetime.now(timezone.utc)
+
+            # Calculate time difference in seconds
+            seconds_elapsed = (now - last_updated).total_seconds()
+
+            self.log(f"{entity} was last updated {seconds_elapsed} seconds ago.", level = "DEBUG")
+            return seconds_elapsed
+        else:
+            self.log(f"Could not retrieve last_updated for {entity}.", level = "DEBUG")
+            return None
 
     def is_time_in_night_window(self):
         # self.log(self._night_after_time)
@@ -223,12 +245,12 @@ class HeatSaver(hass.Hass):
             return "vacation"
         elif(self.is_time_in_night_window()):
             return "night"
-        elif(self.count_on_motion_sensors() > 0):
-            return "motion"
         elif(self.in_guest_mode()):
             return "home"
         elif(self.count_home_device_trackers() == 0):
             return "away"
+        elif(self.count_on_motion_sensors() > 0):
+            return "motion"
         return "home"
 
     def get_external_temperature(self):

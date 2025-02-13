@@ -74,18 +74,40 @@ class PowerSaver(hass.Hass):
                 self.listen_state(self.power_off_force_callback, sensor,
                                 new="on", old="off")
 
-    def count_motion(self, state):
+    def count_motion_sensors(self, state):
         count = 0
         for sensor in self._motion_sensors:
             if self.get_state(sensor) == state:
                 count = count + 1
+            elif self.get_seconds_since_update(sensor) < self._motion_duration:
+                count = count + 1
         return count
 
-    def count_on_motion(self):
-        return self.count_motion("on")
+    def count_on_motion_sensors(self):
+        return self.count_motion_sensors("on")
 
-    def count_off_motion(self):
-        return self.count_motion("off")
+    def count_off_motion_sensors(self):
+        return self.count_motion_sensors("off")
+
+    def get_seconds_since_update(self, entity):
+        last_updated_str = self.get_state(entity, attribute="last_updated")
+
+        if last_updated_str:
+            # Convert ISO string to datetime object
+            last_updated = datetime.fromisoformat(last_updated_str.replace("Z", "+00:00"))
+
+            # Get current time in UTC
+            now = datetime.now(timezone.utc)
+
+            # Calculate time difference in seconds
+            seconds_elapsed = (now - last_updated).total_seconds()
+
+            self.log(f"{entity} was last updated {seconds_elapsed} seconds ago.", level = "DEBUG")
+            return seconds_elapsed
+        else:
+            self.log(f"Could not retrieve last_updated for {entity}.", level = "DEBUG")
+            return None
+
 
     def count_device_trackers(self, state):
         count = 0
@@ -162,7 +184,7 @@ class PowerSaver(hass.Hass):
             self.log("Ignoring callback because all switches are off", level = "DEBUG")
             return
 
-        if(self.count_on_motion() > 0):
+        if(self.count_on_motion_sensors > 0):
             self.log("Ignoring callback because there is still motion", level = "DEBUG")
             return
 
@@ -182,7 +204,7 @@ class PowerSaver(hass.Hass):
                 new, entity, self.count_home_device_trackers()), level = "DEBUG")
             return
 
-        if(self.count_on_motion() > 0):
+        if(self.count_on_motion_sensors > 0):
             self.log("Ignoring callback because there is still motion", level = "DEBUG")
             return
 
@@ -207,7 +229,7 @@ class PowerSaver(hass.Hass):
             self.log("Ignoring callback because all switches are off", level = "DEBUG")
             return
 
-        if(self.count_on_motion() >= 0):
+        if(self.count_on_motion_sensors >= 0):
             self.log("Ignoring callback because there is still motion", level = "DEBUG")
             return
 

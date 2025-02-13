@@ -1,4 +1,5 @@
 import appdaemon.plugins.hass.hassapi as hass
+from datetime import datetime, timezone
 
 #
 # LightSaver App
@@ -85,26 +86,47 @@ class LightSaver(hass.Hass):
         # start or stop power based on elevation
         self.listen_state(self.elevation_change_callback, "sun.sun", attribute = "elevation")
 
-        if(self.count_on_motion() == 0):
+        if(self.count_on_motion_sensors() == 0):
             self.turn_off_lights()
             self.stop_fluxer()
 
-        if(self.count_on_motion() > 0 and self.below_min_illumination()):
+        if(self.count_on_motion_sensors() > 0 and self.below_min_illumination()):
             self.turn_on_lights()
             self.start_fluxer()
 
-    def count_motion(self, state):
+    def count_motion_sensors(self, state):
         count = 0
         for sensor in self._motion_sensors:
             if self.get_state(sensor) == state:
                 count = count + 1
+            elif self.get_seconds_since_update(sensor) < self._motion_duration:
+                count = count + 1
         return count
 
-    def count_on_motion(self):
-        return self.count_motion("on")
+    def count_on_motion_sensors(self):
+        return self.count_motion_sensors("on")
 
-    def count_off_motion(self):
-        return self.count_motion("off")
+    def count_off_motion_sensors(self):
+        return self.count_motion_sensors("off")
+
+    def get_seconds_since_update(self, entity):
+        last_updated_str = self.get_state(entity, attribute="last_updated")
+
+        if last_updated_str:
+            # Convert ISO string to datetime object
+            last_updated = datetime.fromisoformat(last_updated_str.replace("Z", "+00:00"))
+
+            # Get current time in UTC
+            now = datetime.now(timezone.utc)
+
+            # Calculate time difference in seconds
+            seconds_elapsed = (now - last_updated).total_seconds()
+
+            self.log(f"{entity} was last updated {seconds_elapsed} seconds ago.", level = "DEBUG")
+            return seconds_elapsed
+        else:
+            self.log(f"Could not retrieve last_updated for {entity}.", level = "DEBUG")
+            return None
 
     def count_media_players(self, state):
         count = 0
@@ -244,7 +266,7 @@ class LightSaver(hass.Hass):
         return False
 
     def turn_on_lights(self):
-        if(self.count_on_motion() == 0):
+        if(self.count_on_motion_sensors == 0):
             self.log("Ignoring callback because there is no motion", level = "DEBUG")
             return
 
@@ -299,7 +321,7 @@ class LightSaver(hass.Hass):
         self.log(
             "Callback motion_off from {}:{} {}->{}".format(entity, attribute, old, new))
 
-        if(self.count_on_motion() > 0):
+        if(self.count_on_motion_sensors > 0):
             self.log("Ignoring callback because there is still motion", level = "DEBUG")
             return
 
