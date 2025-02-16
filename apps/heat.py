@@ -42,7 +42,7 @@ class HeatSaver(hass.Hass):
         self._vacation_temperature = self.args.get("vacation_temperature", 16)
         self._vacation_hvac_mode = self.args.get("vacation_hvac_mode", "heat")
         self._vacation_temperature_control = self.args.get("vacation_temperature_control", None)
-        self._open_temperature = self.args.get("open_temperature", 14)
+        self._open_temperature = self.args.get("open_temperature", 16)
         self._open_hvac_mode = self.args.get("open_hvac_mode", "off")
         self._open_temperature_control = self.args.get("open_temperature_control", None)
         self._overheat_hvac_mode = self.args.get("overheat_hvac_mode", "off")
@@ -277,7 +277,7 @@ class HeatSaver(hass.Hass):
             return float(self.get_state(vars(self)['_' + status + '_temperature_control'])) + float(self._offset_temperature)
 
     def get_desired_temperature(self):
-        return self.get_desired_temperature_by_status(self.get_current_status())
+        return max(self.get_desired_temperature_by_status(self.get_current_status()), 16)
 
     def get_desired_hvac_mode_by_status(self, status):
         return vars(self)['_' + status + '_hvac_mode']

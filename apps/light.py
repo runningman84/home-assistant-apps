@@ -65,6 +65,11 @@ class LightSaver(hass.Hass):
             self.listen_state(self.motion_off_callback, sensor,
                               new="off", old="on", duration=self._motion_duration)
 
+        # stop light if it swichted on and no motion
+        for light in self._lights:
+            self.listen_state(self.light_on_callback, sensor,
+                              new="on", old="off", duration=self._motion_duration)
+
         for sensor in self._media_players:
             self.listen_state(self.motion_on_callback, sensor,
                               new="on", old="off")
@@ -95,6 +100,9 @@ class LightSaver(hass.Hass):
             self.start_fluxer()
 
     def count_motion_sensors(self, state):
+        if state == 'any':
+            return len(self._motion_sensors)
+
         count = 0
         for sensor in self._motion_sensors:
             if self.get_state(sensor) == state:
@@ -129,6 +137,9 @@ class LightSaver(hass.Hass):
             return None
 
     def count_media_players(self, state):
+        if state == 'any':
+            return len(self._media_players)
+
         count = 0
         for sensor in self._media_players:
             if self.get_state(sensor) == state:
@@ -142,6 +153,9 @@ class LightSaver(hass.Hass):
         return self.count_media_players("off")
 
     def count_lights(self, state):
+        if state == 'any':
+            return len(self._lights)
+
         count = 0
         for sensor in self._lights:
             if self.get_state(sensor) == state:
@@ -155,6 +169,9 @@ class LightSaver(hass.Hass):
         return self.count_motion("off")
 
     def count_device_trackers(self, state):
+        if state == 'any':
+            return len(self._device_trackers)
+
         count = 0
         for sensor in self._device_trackers:
             if self.get_state(sensor) == state:
@@ -266,7 +283,7 @@ class LightSaver(hass.Hass):
         return False
 
     def turn_on_lights(self):
-        if(self.count_on_motion_sensors == 0):
+        if(self.count_on_motion_sensors() == 0):
             self.log("Ignoring callback because there is no motion", level = "DEBUG")
             return
 
@@ -278,8 +295,8 @@ class LightSaver(hass.Hass):
             self.log("Ignoring callback because alarm state is {}".format(self.get_alarm_state()), level = "DEBUG")
             return
 
-        if(self.count_on_lights() > 0):
-            self.log("Ignoring callback because lights are on", level = "DEBUG")
+        if(self.count_on_lights() < self.count_lights("any")):
+            self.log("Ignoring callback because all lights are on", level = "DEBUG")
             return
 
         if self.now_is_between(self._night_start, self._night_end):
@@ -295,7 +312,7 @@ class LightSaver(hass.Hass):
 
     def turn_off_lights(self):
         if(self.count_on_lights() == 0):
-            self.log("Ignoring callback because lights are off", level = "DEBUG")
+            self.log("Ignoring callback because all lights are off", level = "DEBUG")
             return
 
         if(self.count_on_media_players() > 0):
@@ -314,14 +331,27 @@ class LightSaver(hass.Hass):
         self.log(
             "Callback motion_on from {}:{} {}->{}".format(entity, attribute, old, new))
 
-        if(self.below_min_illumination()):
-            self.turn_on_lights()
+        if(self.above_max_illumination()):
+            self.log("Ignoring callback because there is still illumination", level = "DEBUG")
+            return
+
+        self.turn_on_lights()
 
     def motion_off_callback(self, entity, attribute, old, new, kwargs):
         self.log(
             "Callback motion_off from {}:{} {}->{}".format(entity, attribute, old, new))
 
-        if(self.count_on_motion_sensors > 0):
+        if(self.count_on_motion_sensors() > 0):
+            self.log("Ignoring callback because there is still motion", level = "DEBUG")
+            return
+
+        self.turn_off_lights()
+
+    def light_on_callback(self, entity, attribute, old, new, kwargs):
+        self.log(
+            "Callback light_on from {}:{} {}->{}".format(entity, attribute, old, new))
+
+        if(self.count_on_motion_sensors() > 0):
             self.log("Ignoring callback because there is still motion", level = "DEBUG")
             return
 
