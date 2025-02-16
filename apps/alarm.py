@@ -287,6 +287,7 @@ class AlarmSystem(hass.Hass):
         count = 0
         for sensor in self.__device_trackers:
             if self.get_state(sensor) == state:
+                self.log("Device tracker {} is at {}".format(sensor, state), level = "DEBUG")
                 count = count + 1
         return count
 
@@ -294,6 +295,7 @@ class AlarmSystem(hass.Hass):
         count = 0
         for sensor in self.__device_trackers:
             if self.get_state(sensor) == "home":
+                self.log("Device tracker {} is at home".format(sensor), level = "DEBUG")
                 count = count + 1
         return count
 
@@ -301,6 +303,7 @@ class AlarmSystem(hass.Hass):
         count = 0
         for sensor in self.__device_trackers:
             if self.get_state(sensor) != "home":
+                self.log("Device tracker {} is not at home".format(sensor), level = "DEBUG")
                 count = count + 1
         return count
 
@@ -341,6 +344,7 @@ class AlarmSystem(hass.Hass):
             self.notify_alexa(msg, title)
 
         self.notify_telegram(msg)
+        self.notify_notify(msg)
 
     def notify_telegram(self, msg):
         for user_id in self.__telegram_user_ids:
@@ -351,9 +355,14 @@ class AlarmSystem(hass.Hass):
                                 message=msg,
                                 disable_notification=True)
 
+    def notify_notify(self, msg):
+        self.log("Calling service notify/notify with message: {}".format(msg))
+        self.call_service('notify/notify',
+                            title='*Alarm System*',
+                            message=msg)
+
     def notify_alexa(self, msg, title):
         self.notify_alexa_media_announce(msg, title)
-
 
     def notify_alexa_media_announce(self, msg, title=None):
         if title is None:
@@ -377,9 +386,14 @@ class AlarmSystem(hass.Hass):
             if self.__language == 'german':
                 language = 'de-DE'
             for device in self.__tts_devices:
-                self.log("Calling service tts/picotts_say with device {} and message: {}".format(device, msg))
+                self.log("Calling service tts/speak with device {} and message: {}".format(device, msg))
                 self.call_service(
-                    "tts/picotts_say", message=msg, entity_id=device, language=language)
+                    "tts/speak",
+                    entity_id="tts.piper",
+                    cache=True,
+                    media_player_entity_id=device,
+                    message=msg
+                )
 
 
     # def notify_mobile_app(self, msg, title=None):
@@ -670,7 +684,7 @@ class AlarmSystem(hass.Hass):
         self.log(
             "Callback trigger_alarm_while_armed_away from {}:{} {}->{}".format(entity, attribute, old, new))
 
-        if(self.is_alarm_armed_away() == False and self.is_alarm_armed_vacation() == False):
+        if(self.is_alarm_armed_away() == False and self.is_alarm_armed_vacation() == False and self.is_alarm_triggered() == False and self.is_alarm_pending == False):
             self.log("Ignoring state {} of {} because alarm system is in state {}".format(
                 new, entity, self.get_alarm_state()))
             return
@@ -694,7 +708,7 @@ class AlarmSystem(hass.Hass):
         self.log(
             "Callback trigger_alarm_while_armed_home from {}:{} {}->{}".format(entity, attribute, old, new))
 
-        if(self.is_alarm_armed_home() == False and self.is_alarm_armed_night() == False):
+        if(self.is_alarm_armed_home() == False and self.is_alarm_armed_night() == False and self.is_alarm_triggered() == False and self.is_alarm_pending == False):
             self.log("Ignoring state {} of {} because alarm system is in state {}".format(
                 new, entity, self.get_alarm_state()))
             return
