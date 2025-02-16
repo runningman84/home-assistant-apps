@@ -17,7 +17,7 @@ class AlarmSystem(hass.Hass):
 
         # setup sane defaults
         # sensors
-        # intruder
+        # burglar
         self.__armed_home_binary_sensors = self.args.get("armed_home_binary_sensors", [])
         self.__armed_home_image_processing_sensors = self.args.get("armed_home_image_processing_sensors", [])
         self.__armed_away_binary_sensors = self.args.get("armed_away_binary_sensors", [])
@@ -55,7 +55,8 @@ class AlarmSystem(hass.Hass):
         self.__camera_snapshot_path = self.args.get("camera_snapshot_path", '/tmp')
         self.__camera_snapshot_regex = self.args.get("camera_snapshot_regex", "camera_.*\\d+_\\d+\\.jpg")
         # sirens
-        self.__siren_switches = self.args.get("siren_switches", [])
+        self.__fire_siren_switches = self.args.get("fire_siren_switches", [])
+        self.__burglar_siren_switches = self.args.get("burglar_siren_switches", [])
 
         # auto arm time (utc)
         self.__alarm_arm_night_after_time = self.args.get("alarm_arm_night_after_time", "23:15:00")
@@ -68,10 +69,10 @@ class AlarmSystem(hass.Hass):
         self.__language = self.args.get("language","english")
         self.__translation = {
             "german" : {
-                "intruder_alert": "Achtung Einbruchsalarm, Sensor {} wurde ausgelöst",
-                "fire_alert": "Achtung Feueralarm, Sensor {} wurde ausglöst",
-                "fire_temperature_alert": "Achtung Feueralarm, Sensor {} hat eine kritische Temperatur von {} Grad erreicht",
-                "water_leak_alert": "Achtung Wasserleck, Sensor {} wurde ausgelöst",
+                "burglar_alert": "Achtung! Einbruchsalarm! Sensor {} wurde ausgelöst",
+                "fire_alert": "Achtung! Feueralarm! Sensor {} wurde ausglöst",
+                "fire_temperature_alert": "Achtung! Feueralarm! Sensor {} hat eine kritische Temperatur von {} Grad erreicht",
+                "water_leak_alert": "Achtung! Wasserleck! Sensor {} wurde ausgelöst",
                 "system_start": "Homeassistant System gestartet",
                 "button_disarm": "Achtung, Schalter {} gedrückt, Alarmanlage wird ausgeschaltet",
                 "button_arm_home": "Achtung, Schalter {} gedrückt, Alarmanlage im Modus Zuhause wird aktiviert",
@@ -94,7 +95,7 @@ class AlarmSystem(hass.Hass):
                 "alarm_system_armed_vacation": "Achtung Alarmanlage im Modus Urlaub ist scharf geschaltet"
             },
             "english" : {
-                "intruder_alert": "Attention intruder alarm, sensor {} has triggered",
+                "burglar_alert": "Attention burglar alarm, sensor {} has triggered",
                 "fire_alert": "Attention Attention Attention fire alarm, sensor {} has triggered",
                 "fire_temperature_alert": "Attention fire alarm, sensor {} has reached a critical temperature of {} degrees",
                 "water_leak_alert": "Attention water leak, Sensor {} was triggered",
@@ -131,6 +132,8 @@ class AlarmSystem(hass.Hass):
         self.log("Got armed_away image processing sensors {}".format(
             self.__armed_away_image_processing_sensors))
         self.log("Got alarm buttons {}".format(self.__alarm_control_buttons))
+        self.log("Got fire siren switches {}".format(self.__fire_siren_switches))
+        self.log("Got burglar siren switches {}".format(self.__burglar_siren_switches))
         self.log("Got device trackers {}".format(self.__device_trackers))
         self.log("Got {} device_trackers home and {} device_trackers not home".format(
             self.count_home_device_trackers(), self.count_not_home_device_trackers()))
@@ -199,16 +202,25 @@ class AlarmSystem(hass.Hass):
             self.listen_event(self.camera_snapshot_stored_callback, 'folder_watcher', event_type="created")
 
         self.__flash_warning_handle = None
+        self.__media_warning_handle = None
         self.__camera_snapshot_handle = None
         self.__flash_count = 0
+        self.__media_warning_count = 0
+        self.__media_warning_max_count = 30
+        self.__media_warning_inital_delay = 10
+        self.__media_warning_delay = 5
+
         self.__snap_count = 0
         self.__sensor_handles = {}
 
         # Alarm type
         self.__alarm_type = None
+        self.__alarm_messages = []
 
         # Init system
         self.set_alarm_light_color_based_on_state()
+        self.stop_burglar_siren()
+        self.stop_fire_siren()
         self.start_sensor_listeners()
 
         if(self.__alarm_arm_night_after_time is not None):
@@ -333,7 +345,7 @@ class AlarmSystem(hass.Hass):
             return 10
         return int(float(self.get_state(self.__info_volume_control)))
 
-    def notify(self, msg, title=None, prio=0):
+    def notify(self, message, title=None, prio=0):
         # prio
         # 0 = urgent
         # 1 = other
@@ -341,73 +353,79 @@ class AlarmSystem(hass.Hass):
         if self.is_time_in_sleep_window() and prio > 0:
             self.log("Ignoring notify alexa due to sleep time")
         else:
-            self.notify_alexa(msg, title)
+            self.notify_media(message = message, title = title, prio = prio)
 
-        self.notify_telegram(msg)
-        self.notify_notify(msg)
+        self.notify_telegram(message)
+        self.notify_notify(message)
 
-    def notify_telegram(self, msg):
+    def notify_telegram(self, message):
         for user_id in self.__telegram_user_ids:
-            self.log("Calling service telegram_bot/send_message with user_id {} and message: {}".format(user_id, msg))
+            self.log("Calling service telegram_bot/send_message with user_id {} and message: {}".format(user_id, message))
             self.call_service('telegram_bot/send_message',
                                 title='*Alarm System*',
                                 target=user_id,
-                                message=msg,
+                                message=message,
                                 disable_notification=True)
 
-    def notify_notify(self, msg):
-        self.log("Calling service notify/notify with message: {}".format(msg))
+    def notify_notify(self, message):
+        self.log("Calling service notify/notify with message: {}".format(message))
         self.call_service('notify/notify',
                             title='*Alarm System*',
-                            message=msg)
+                            message=message)
 
-    def notify_alexa(self, msg, title):
-        self.notify_alexa_media_announce(msg, title)
+    def notify_media(self, *args, **kwargs):
+        # If a scheduled callback passed a dictionary as a positional argument,
+        # merge it with any keyword arguments provided.
+        if args and isinstance(args[0], dict):
+            kwargs = {**args[0], **kwargs}
 
-    def notify_alexa_media_announce(self, msg, title=None):
-        if title is None:
-            title = msg
+        # Extract parameters, using 'message' as the key (or fallback to an empty string)
+        message = kwargs.get("message", "")
+        title = kwargs.get("title", message)  # If title is not provided, use message
 
-        if len(self.__alexa_media_devices) > 0:
-            data = {"type":"announce","method":"all"}
-            self.log("Calling service notify/alexa_media with message: {}".format(msg))
-            self.call_service(
-                "notify/alexa_media", message=msg, title=title, data=data, target=self.__alexa_media_devices)
+        # Check if message is empty and log an error if so.
+        if not message:
+            self.log("Error: No message provided for media notification.")
+            return
 
-        if len(self.__alexa_monkeys) > 0:
-            for monkey in self.__alexa_monkeys:
-                data = {"announcement":msg,"monkey":monkey}
-                self.log("Calling service rest_command/trigger_monkey with monkey {} and message: {}".format(monkey, msg))
-                self.call_service(
-                    "rest_command/trigger_monkey", announcement=msg, monkey=monkey)
+        self.notify_alexa_media(message, title)
+        self.notify_alexa_monkey(message, title)
+        self.notify_tts(message, title)
 
+    def notify_tts(self, message, title=None):
         if len(self.__tts_devices) > 0:
             language = 'en-US'
             if self.__language == 'german':
                 language = 'de-DE'
             for device in self.__tts_devices:
-                self.log("Calling service tts/speak with device {} and message: {}".format(device, msg))
+                self.log("Calling service tts/speak with device {} and message: {}".format(device, message))
                 self.call_service(
                     "tts/speak",
                     entity_id="tts.piper",
                     cache=True,
                     media_player_entity_id=device,
-                    message=msg
+                    message=message
                 )
 
+    def notify_alexa_media(self, message, title=None):
+        if len(self.__alexa_media_devices) > 0:
+            data = {"type":"announce","method":"all"}
+            self.log("Calling service notify/alexa_media with message: {}".format(message))
+            self.call_service(
+                "notify/alexa_media", message=message, title=title, data=data, target=self.__alexa_media_devices)
 
-    # def notify_mobile_app(self, msg, title=None):
+    def notify_alexa_monkey(self, message, title=None):
+        if len(self.__alexa_monkeys) > 0:
+            for monkey in self.__alexa_monkeys:
+                data = {"announcement":message,"monkey":monkey}
+                self.log("Calling service rest_command/trigger_monkey with monkey {} and message: {}".format(monkey, message))
+                self.call_service(
+                    "rest_command/trigger_monkey", announcement=message, monkey=monkey)
 
-    def translate(self, msg):
-        return self.__translation[self.__language][msg]
+    # def notify_mobile_app(self, message, title=None):
 
-    # def notify_alexa_media_tts(self, msg):
-    #     if len(self.__alexa_media_devices) == 0:
-    #         return
-
-    #     data = {"type":"tts"}
-    #     self.call_service(
-    #         "notify/alexa_media", message=msg, data=data, target=self.__alexa_media_devices)
+    def translate(self, message):
+        return self.__translation[self.__language][message]
 
     def in_silent_mode(self):
         if self.__silent_control is None:
@@ -479,10 +497,23 @@ class AlarmSystem(hass.Hass):
         #
 
     def set_alarm_type(self, alarm_type):
+        self.log("Setting alarm type to {}".format(alarm_type), level = "DEBUG")
         self.__alarm_type = alarm_type
 
     def get_alarm_type(self):
         return self.__alarm_type
+
+    def add_alarm_message(self, message):
+        self.log("Adding message {} to list of alarm messages".format(message), level = "DEBUG")
+        if message not in self.__alarm_messages:
+            self.__alarm_messages.append(message)
+
+    def reset_alarm_messages(self):
+        self.log("Resetting list of alarm messages", level = "DEBUG")
+        self.__alarm_messages = []
+
+    def get_alarm_messages(self):
+        return self.__alarm_messages
 
     def flash_warning(self, kwargs):
         for light in self.__alarm_lights:
@@ -507,18 +538,54 @@ class AlarmSystem(hass.Hass):
             self.__flash_count = 60
             self.__flash_warning_handle = None
 
-    def start_siren(self):
+    def media_warning(self, kwargs):
+        self.log("Alarm message count {}".format(len(self.get_alarm_messages())))
+        self.media_warning_with_delay(self.get_alarm_messages())
+        self.__media_count += 1
+        self.log("Media warning count {}".format(self.__media_count))
+        if self.__media_count < self.__media_warning_max_count:
+            self.__media_warning_handle = self.run_in(self.media_warning, self.__media_warning_delay + len(self.get_alarm_messages() * 5))
+
+    def media_warning_with_delay(self, messages, delay=5):
+        """Send each message with a delay"""
+        for i, message in enumerate(messages):
+            self.run_in(self.notify_media, i * delay, message=message)
+
+    def start_media_warning(self):
+        self.stop_media_warning()
+        self.__media_count = 0
+        self.log("Starting media warning timer")
+        self.__media_warning_handle = self.run_in(self.media_warning, self.__media_warning_inital_delay)
+
+    def stop_media_warning(self):
+        if self.__media_warning_handle is not None:
+            self.log("Stopping media warning timer")
+            self.cancel_timer(self.__media_warning_handle)
+            self.__media_count = self.__media_warning_max_count
+            self.__media_warning_handle = None
+
+    def start_burglar_siren(self):
         if self.in_silent_mode():
             self.log("Suppressed siren because of silent mode")
             return
 
-        for siren in self.__siren_switches:
-            self.log("Turning on device {}".format(siren))
+        for siren in self.__burglar_siren_switches:
+            self.log("Turning on burglar siren {}".format(siren))
             self.turn_on(siren)
 
-    def stop_siren(self):
-        for siren in self.__siren_switches:
-            self.log("Turning off device {}".format(siren))
+    def stop_burglar_siren(self):
+        for siren in self.__burglar_siren_switches:
+            self.log("Turning off burglar siren {}".format(siren))
+            self.turn_off(siren)
+
+    def start_fire_siren(self):
+        for siren in self.__fire_siren_switches:
+            self.log("Turning on fire siren {}".format(siren))
+            self.turn_on(siren)
+
+    def stop_fire_siren(self):
+        for siren in self.__fire_siren_switches:
+            self.log("Turning off fire siren {}".format(siren))
             self.turn_off(siren)
 
     def camera_snapshot(self, kwargs):
@@ -599,10 +666,18 @@ class AlarmSystem(hass.Hass):
         self.stop_flash_warning()
         self.set_alarm_light_color_based_on_state()
         self.start_camera_snapshot("alarm_state_triggered")
-        self.start_siren()
 
-        msg = self.translate("alarm_system_triggered")
-        self.notify(msg)
+        self.log("Alarm reason is {}".format(self.get_alarm_type()))
+
+        if self.get_alarm_type() == 'burglar':
+            self.start_burglar_siren()
+        if self.get_alarm_type() == 'fire':
+            self.start_fire_siren()
+
+        message = self.translate("alarm_system_triggered")
+        self.notify(message)
+
+        self.start_media_warning()
 
         if self.__notify_service is not None:
             self.call_service(self.__notify_service, title=self.__notify_title.format(self.get_alarm_type()))
@@ -636,10 +711,13 @@ class AlarmSystem(hass.Hass):
         self.start_camera_snapshot("alarm_state_disarmed", 10, 60)
         self.stop_sensor_listeners()
         self.set_alarm_light_color_based_on_state()
-        self.stop_siren()
+        self.stop_fire_siren()
+        self.stop_burglar_siren()
+        self.stop_media_warning()
+        self.reset_alarm_messages()
 
-        msg = self.translate("alarm_system_disarmed")
-        self.notify(msg, prio=1)
+        message = self.translate("alarm_system_disarmed")
+        self.notify(message, prio=1)
 
     def alarm_state_armed_away_callback(self, entity, attribute, old, new, kwargs):
         self.log(
@@ -650,9 +728,13 @@ class AlarmSystem(hass.Hass):
         self.stop_sensor_listeners()
         self.start_armed_away_binary_sensor_listeners()
         self.set_alarm_light_color_based_on_state()
+        self.stop_fire_siren()
+        self.stop_burglar_siren()
+        self.stop_media_warning()
+        self.reset_alarm_messages()
 
-        msg = self.translate("alarm_system_armed_away")
-        self.notify(msg, prio=1)
+        message = self.translate("alarm_system_armed_away")
+        self.notify(message, prio=1)
 
     def alarm_state_armed_home_callback(self, entity, attribute, old, new, kwargs):
         self.log(
@@ -663,9 +745,13 @@ class AlarmSystem(hass.Hass):
         self.stop_sensor_listeners()
         self.start_armed_home_binary_sensor_listeners()
         self.set_alarm_light_color_based_on_state()
+        self.stop_fire_siren()
+        self.stop_burglar_siren()
+        self.stop_media_warning()
+        self.reset_alarm_messages()
 
-        msg = self.translate("alarm_system_armed_home")
-        self.notify(msg, prio=1)
+        message = self.translate("alarm_system_armed_home")
+        self.notify(message, prio=1)
 
     def alarm_state_armed_night_callback(self, entity, attribute, old, new, kwargs):
         self.log(
@@ -676,9 +762,13 @@ class AlarmSystem(hass.Hass):
         self.stop_sensor_listeners()
         self.start_armed_home_binary_sensor_listeners()
         self.set_alarm_light_color_based_on_state()
+        self.stop_fire_siren()
+        self.stop_burglar_siren()
+        self.stop_media_warning()
+        self.reset_alarm_messages()
 
-        msg = self.translate("alarm_system_armed_night")
-        self.notify(msg, prio=1)
+        message = self.translate("alarm_system_armed_night")
+        self.notify(message, prio=1)
 
     def trigger_alarm_while_armed_away_callback(self, entity, attribute, old, new, kwargs):
         self.log(
@@ -694,10 +784,12 @@ class AlarmSystem(hass.Hass):
                 new, entity, self.count_home_device_trackers()))
             return
 
-        self.set_alarm_type('intruder')
+        self.set_alarm_type('burglar')
 
-        msg = self.translate("intruder_alert").format(self.get_state(entity, attribute = "friendly_name"))
-        self.notify(msg)
+        message = self.translate("burglar_alert").format(self.get_state(entity, attribute = "friendly_name"))
+        self.notify(message)
+
+        self.add_alarm_message(message)
 
         self.log("Calling service alarm_control_panel/alarm_trigger")
 
@@ -713,10 +805,12 @@ class AlarmSystem(hass.Hass):
                 new, entity, self.get_alarm_state()))
             return
 
-        self.set_alarm_type('intruder')
+        self.set_alarm_type('burglar')
 
-        msg = self.translate("intruder_alert").format(self.get_state(entity, attribute = "friendly_name"))
-        self.notify(msg)
+        message = self.translate("burglar_alert").format(self.get_state(entity, attribute = "friendly_name"))
+        self.notify(message)
+
+        self.add_alarm_message(message)
 
         self.log("Calling service alarm_control_panel/alarm_trigger")
 
@@ -729,8 +823,10 @@ class AlarmSystem(hass.Hass):
 
         self.set_alarm_type('fire')
 
-        msg = self.translate("fire_alert").format(self.get_state(entity, attribute = "friendly_name"))
-        self.notify(msg)
+        message = self.translate("fire_alert").format(self.get_state(entity, attribute = "friendly_name"))
+        self.notify(message)
+
+        self.add_alarm_message(message)
 
         self.log("Calling service alarm_control_panel/alarm_trigger")
 
@@ -753,8 +849,10 @@ class AlarmSystem(hass.Hass):
 
         self.set_alarm_type('fire')
 
-        msg = self.translate("fire_temperature_alert").format(self.get_state(entity, attribute = "friendly_name"), new)
-        self.notify(msg)
+        message = self.translate("fire_temperature_alert").format(self.get_state(entity, attribute = "friendly_name"), new)
+        self.notify(message)
+
+        self.add_alarm_message(message)
 
         self.log("Calling service alarm_control_panel/alarm_trigger")
 
@@ -767,8 +865,10 @@ class AlarmSystem(hass.Hass):
 
         self.set_alarm_type('water')
 
-        msg = self.translate("water_leak_alert").format(self.get_state(entity, attribute = "friendly_name"))
-        self.notify(msg)
+        message = self.translate("water_leak_alert").format(self.get_state(entity, attribute = "friendly_name"))
+        self.notify(message)
+
+        self.add_alarm_message(message)
 
         self.log("Calling service alarm_control_panel/alarm_trigger")
 
@@ -797,6 +897,8 @@ class AlarmSystem(hass.Hass):
             self.button_arm_away(entity_id)
         elif event_type == "triple":
             self.button_disarm(entity_id)
+        elif event_type == "quadruple":
+            self.button_disarm(entity_id)
         elif event_type == "hold":
             self.button_trigger_alarm(entity_id)
         else:
@@ -813,8 +915,8 @@ class AlarmSystem(hass.Hass):
         if(self.in_vacation_mode()):
             mode = "arm_vacation"
 
-        msg = self.translate("button_{}".format(mode)).format(self.get_state(entity, attribute = "friendly_name"))
-        self.notify(msg)
+        message = self.translate("button_{}".format(mode)).format(self.get_state(entity, attribute = "friendly_name"))
+        self.notify(message)
 
         self.log("Calling service alarm_control_panel/alarm_{}".format(mode))
 
@@ -828,8 +930,8 @@ class AlarmSystem(hass.Hass):
                 self.get_alarm_state()))
             return
 
-        msg = self.translate("button_arm_home").format(self.get_state(entity, attribute = "friendly_name"))
-        self.notify(msg)
+        message = self.translate("button_arm_home").format(self.get_state(entity, attribute = "friendly_name"))
+        self.notify(message)
 
         self.log("Calling service alarm_control_panel/alarm_arm_home")
 
@@ -845,8 +947,8 @@ class AlarmSystem(hass.Hass):
 
         self.set_alarm_type(None)
 
-        msg = self.translate("button_disarm").format(self.get_state(entity, attribute = "friendly_name"))
-        self.notify(msg)
+        message = self.translate("button_disarm").format(self.get_state(entity, attribute = "friendly_name"))
+        self.notify(message)
 
         self.log("Calling service alarm_control_panel/alarm_disarm")
 
@@ -854,12 +956,13 @@ class AlarmSystem(hass.Hass):
                           entity_id=self.__alarm_control_panel, code=self.__alarm_pin)
 
     def button_trigger_alarm(self, entity):
-        self.log("Trigger arlarm")
+        self.log("Trigger alarm using button")
 
-        self.set_alarm_type('intruder')
+        self.set_alarm_type('burglar')
 
-        msg = self.translate("intruder_alert").format(self.get_state(entity, attribute = "friendly_name"))
-        self.notify(msg)
+        message = self.translate("burglar_alert").format(self.get_state(entity, attribute = "friendly_name"))
+        self.notify(message)
+        self.add_alarm_message(message)
 
         self.log("Calling service alarm_control_panel/alarm_trigger")
 
@@ -889,8 +992,8 @@ class AlarmSystem(hass.Hass):
         if(self.in_vacation_mode()):
             mode = "arm_vacation"
 
-        msg = self.translate("auto_{}_person".format(mode)).format(self.get_state(entity, attribute = "friendly_name"))
-        self.notify(msg)
+        message = self.translate("auto_{}_person".format(mode)).format(self.get_state(entity, attribute = "friendly_name"))
+        self.notify(message)
 
         self.log("Calling service alarm_control_panel/alarm_{}".format(mode))
 
@@ -906,8 +1009,8 @@ class AlarmSystem(hass.Hass):
                 new, entity, self.get_alarm_state()))
             return
 
-        msg = self.translate("auto_disarm_person").format(self.get_state(entity, attribute = "friendly_name"))
-        self.notify(msg)
+        message = self.translate("auto_disarm_person").format(self.get_state(entity, attribute = "friendly_name"))
+        self.notify(message)
 
         self.log("Calling service alarm_control_panel/alarm_disarm")
 
@@ -943,8 +1046,8 @@ class AlarmSystem(hass.Hass):
                 new, entity))
             return
 
-        msg = self.translate("auto_arm_night_person").format(self.get_state(entity, attribute = "friendly_name"))
-        self.notify(msg, prio=1)
+        message = self.translate("auto_arm_night_person").format(self.get_state(entity, attribute = "friendly_name"))
+        self.notify(message, prio=1)
 
         self.log("Calling service alarm_control_panel/alarm_arm_night")
 
@@ -977,8 +1080,8 @@ class AlarmSystem(hass.Hass):
             self.log("Ignoring arm night timer because we are not within arm home time window".format())
             return
 
-        msg = self.translate("auto_arm_night_schedule")
-        self.notify(msg, prio=1)
+        message = self.translate("auto_arm_night_schedule")
+        self.notify(message, prio=1)
 
         self.log("Calling service alarm_control_panel/alarm_arm_night")
 
@@ -994,8 +1097,8 @@ class AlarmSystem(hass.Hass):
                 self.get_alarm_state()))
             return
 
-        msg = self.translate("auto_disarm_schedule")
-        self.notify(msg, prio=1)
+        message = self.translate("auto_disarm_schedule")
+        self.notify(message, prio=1)
 
         self.log("Calling service alarm_control_panel/alarm_disarm")
 
