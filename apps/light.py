@@ -137,13 +137,17 @@ class LightSaver(hass.Hass):
             return None
 
     def count_media_players(self, state):
+        self.log("count media players in state {}".format(state), level = "DEBUG")
         if state == 'any':
             return len(self._media_players)
 
         count = 0
         for sensor in self._media_players:
+            self.log("media player {} is in state {}".format(sensor, self.get_state(sensor)), level = "DEBUG")
             if self.get_state(sensor) == state:
                 count = count + 1
+
+        self.log("found {} media players in state {}".format(count, state), level = "DEBUG")
         return count
 
     def count_on_media_players(self):
@@ -153,13 +157,17 @@ class LightSaver(hass.Hass):
         return self.count_media_players("off")
 
     def count_lights(self, state):
+        self.log("count lights in state {}".format(state), level = "DEBUG")
         if state == 'any':
             return len(self._lights)
 
         count = 0
         for sensor in self._lights:
+            self.log("light {} is in state {}".format(sensor, self.get_state(sensor)), level = "DEBUG")
             if self.get_state(sensor) == state:
                 count = count + 1
+
+        self.log("found {} lights in state {}".format(count, state), level = "DEBUG")
         return count
 
     def count_on_lights(self):
@@ -169,13 +177,17 @@ class LightSaver(hass.Hass):
         return self.count_motion("off")
 
     def count_device_trackers(self, state):
+        self.log("count device trackers in state {}".format(state), level = "DEBUG")
         if state == 'any':
             return len(self._device_trackers)
 
         count = 0
         for sensor in self._device_trackers:
+            self.log("device tracker {} is in state {}".format(sensor, self.get_state(sensor)), level = "DEBUG")
             if self.get_state(sensor) == state:
                 count = count + 1
+
+        self.log("found {} device trackers in state {}".format(count, state), level = "DEBUG")
         return count
 
     def count_home_device_trackers(self):
@@ -295,7 +307,7 @@ class LightSaver(hass.Hass):
             self.log("Ignoring callback because alarm state is {}".format(self.get_alarm_state()), level = "DEBUG")
             return
 
-        if(self.count_on_lights() < self.count_lights("any")):
+        if(self.count_on_lights() == self.count_lights("any")):
             self.log("Ignoring callback because all lights are on", level = "DEBUG")
             return
 
