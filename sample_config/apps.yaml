@@ -1,6 +1,6 @@
 alarm_system:
   module: alarm
-  class: AlarmSystem
+  class: AlarmControl
   device_trackers:
     - person.bob
     - person.jon
@@ -40,8 +40,8 @@ guard_dog:
   door_sensor: binary_sensor.switch_158d0002222222
   gw_mac: f0b429cc30b1
 heat_saver_office:
-  module: heat
-  class: HeatSaver
+  module: climate
+  class: ClimateControl
   door_window_sensors:
     - binary_sensor.door_window_sensor_158d0001111111
   device_trackers:
@@ -57,8 +57,8 @@ heat_saver_office:
   vacation_temperature_control: input_number.climate_vacation_temperature
   open_temperature_control: input_number.climate_open_temperature
 heat_saver_livingroom:
-  module: heat
-  class: HeatSaver
+  module: climate
+  class: ClimateControl
   door_window_sensors:
     - binary_sensor.door_window_sensor_158d0001222222
   device_trackers:
@@ -76,7 +76,7 @@ heat_saver_livingroom:
   open_temperature_control: input_number.climate_open_temperature
 power_saver_livingroom:
   module: power
-  class: PowerSaver
+  class: PowerControl
   motion_sensors:
     - binary_sensor.motion_sensor_158d000111111
   device_trackers:
@@ -88,7 +88,7 @@ power_saver_livingroom:
   guest_control: input_boolean.guest_mode
 light_saver_office:
   module: light
-  class: LightSaver
+  class: LightControl
   motion_sensors:
     - binary_sensor.motion_sensor_158d000222222
   illumination_sensors:

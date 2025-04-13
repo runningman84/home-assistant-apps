@@ -2,12 +2,12 @@
 [Home Assistant](https://home-assistant.io) apps based on [AppDaemon](https://home-assistant.io/docs/ecosystem/appdaemon/). A sample configuration for all apps is located here:
 [sample_config/apps.yaml](sample_config/apps.yaml)
 
-AlarmSystem
+AlarmControl
 ============
 
 The idea is to notify if an intrusion is detected. The system arms itself if all device_trackers are marked away and disarms if any device_tracker is back home. For me the system works perfectly without manual intervention. In order to allow baby sitters or other guest without residents you can enable a guest mode.
 
-This system work with any light system (should support color) and with any sensors who report on/off values. I have tested it with xiaomi hub, sensors, buttons. Some disscusion can be found in the [forum](https://community.home-assistant.io/t/alarmsystem-with-appdaemon/31312)
+This system work with any light system (should support color) and with any sensors who report on/off values. I have tested it with xiaomi hub, sensors, buttons. Some disscusion can be found in the [forum](https://community.home-assistant.io/t/AlarmControl-with-appdaemon/31312)
 
 Key | Description | Default
 ------------ | ------------- | -------------
@@ -31,14 +31,14 @@ guest_control | input boolean to configure a babysitter mode which does not auto
 silent_control | input boolean to mute the alarm sound | None
 siren_switches | list of siren switches to turn on or off | []
 notify_service | script to call for notification | None
-notify_title | title parameter for script | AlarmSystem triggered, possible intruder
+notify_title | title parameter for script | AlarmControl triggered, possible intruder
 cameras | List of cameras (snapshots will be made once alarm is triggered) | []
 camera_snapshot_path | Path for storing camera snapshots | /tmp
 camera_snapshot_regex | Regex for camera snapshots | "camera_.*\d+_\d+\.jpg"
 alexa_monkeys | list of alexa voice monkeys for audio notifications | []
 telegram_user_ids | list of telegram user ids used for notifications | []
 
-HeatSaver
+ClimateControl
 ============
 
 This app controls the temperature based on the opening and closing of windows/doors and some global control settings. Tt saves heating by lowering the thermostat if you are away or a window is open.
@@ -56,7 +56,7 @@ away_temperature_control | slider to control temperature of the state at away | 
 vacation_temperature_control | slider to control temperature of the state at vacation | None
 open_temperature_control | slider to control temperature of the state at open | None
 
-LightSaver
+LightControl
 ============
 
 This app controls the lights based on motion sensors, sun elevation, illumination level and some global control settings. It saves energy by switching lights off.
@@ -80,7 +80,7 @@ evening_scene | scene to use for evening lights | None
 off_scene | scene to use for lights off | None
 
 
-PowerSaver
+PowerControl
 ============
 
 This app controls the devices based on motion sensors and some global control settings. It saves energy by switching devices off.
