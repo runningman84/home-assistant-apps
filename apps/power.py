@@ -1,132 +1,85 @@
 import appdaemon.plugins.hass.hassapi as hass
+from base import BaseApp
+import inspect
 
 #
-# HeatSaver App
+# PowerControl App
 #
 # Args:
 #
 # Concept:
 # PowerOn if motion
-# PowerOff if no motion for motion_duration
-# PowerOff if vacation for vacation_duration
-# PowerOff if nobody at home for tracker_duration unless guest
+# PowerOff if no motion for motion_timeout
+# PowerOff if vacation for vacation_timeout
+# PowerOff if nobody at home for tracker_timeout unless guest
 # Nothing on startup
 
-class PowerSaver(hass.Hass):
+class PowerControl(BaseApp):
 
     def initialize(self):
-        self.log("Hello from PowerSaver")
+        super().initialize()
 
         # setup sane defaults
-        self._motion_sensors = self.args.get("motion_sensors", [])
-        self._device_trackers = self.args.get("device_trackers", [])
         self._power_controls = self.args.get("power_controls", [])
         self._standby_sensors = self.args.get("standby_sensors", [])
-        self._vacation_control = self.args.get("vacation_control", None)
-        self._guest_control = self.args.get("guest_control", None)
-        self._motion_duration = self.args.get("motion_duration", 60*60*2)
-        self._tracker_duration = self.args.get("tracker_duration", 60*15)
-        self._vacation_duration = self.args.get("vacation_duration", 60)
-        self._night_start = self.args.get("night_start", "01:30:00")
-        self._night_end = self.args.get("night_end", "06:30:00")
+        self._standby_treshhold = None
         self._night_force_off = self.args.get("night_force_off", True)
 
+        # TBD
         self._standby_power_limit = self.args.get("standby_power_limit", 0)
         self._standby_power_limit_last_seen = self.args.get("standby_power_limit", None)
 
         # log current config
-        self.log("Got motion sensors {}".format(
-            self._motion_sensors))
-        self.log("Got device trackers {}".format(self._device_trackers))
-        self.log("Got device controls {}".format(self._power_controls))
-        self.log("Got motion duration {}".format(self._motion_duration))
-        self.log("Got tracker duration {}".format(self._tracker_duration))
-        self.log("Got vacation duration {}".format(self._vacation_duration))
-        self.log("Got {} device_trackers home and {} device_trackers not home".format(
-            self.count_home_device_trackers(), self.count_not_home_device_trackers()))
-        self.log("Got guest_mode {}".format(self.in_guest_mode()))
-        self.log("Got vacation_mode {}".format(self.in_vacation_mode()))
+        self.log(f"Got device controls {self._power_controls}")
 
         # start or stop power based on motion
         for sensor in self._motion_sensors:
-            self.listen_state(self.power_on_callback, sensor,
-                              new="on", old="off")
-            self.listen_state(self.power_off_motion_callback,
-                              sensor, new="off", old="on", duration=self._motion_duration)
+            self.listen_state(self.sensor_change_callback, sensor,
+                                new="on", old="off")
+            self.listen_state(self.sensor_change_callback,
+                                sensor, new="off", old="on", duration=self._motion_timeout)
 
         # stop power if nobody is home
         for sensor in self._device_trackers:
-            self.listen_state(self.power_off_presence_callback,
-                              sensor, new="not_home", old="home", duration=self._tracker_duration)
+            self.listen_state(self.sensor_change_callback,
+                                sensor, new="not_home", old="home", duration=self._tracker_timeout)
 
         # stop power during vacation
         if self._vacation_control is not None:
-            self.listen_state(self.power_off_presence_callback, self._vacation_control,
-                              new="on", old="off", duration=self._vacation_duration)
+            self.listen_state(self.sensor_change_callback, self._vacation_control,
+                                new="on", old="off", duration=self._vacation_timeout)
 
         # stop power each night
         runtime = self.parse_time(self._night_start)
-        self.run_daily(self.power_off_auto_timer_callback, runtime)
+        self.run_daily(self.perodic_time_callback, runtime)
 
-        # force stop power at night
-        if self._night_force_off:
-            for sensor in self._power_controls:
-                self.listen_state(self.power_off_force_callback, sensor,
-                                new="on", old="off")
-
-    def count_motion_sensors(self, state):
-        count = 0
-        for sensor in self._motion_sensors:
-            if self.get_state(sensor) == state:
-                count = count + 1
-            elif self.get_seconds_since_update(sensor) < self._motion_duration:
-                count = count + 1
-        return count
-
-    def count_on_motion_sensors(self):
-        return self.count_motion_sensors("on")
-
-    def count_off_motion_sensors(self):
-        return self.count_motion_sensors("off")
-
-    def get_seconds_since_update(self, entity):
-        last_updated_str = self.get_state(entity, attribute="last_updated")
-
-        if last_updated_str:
-            # Convert ISO string to datetime object
-            last_updated = datetime.fromisoformat(last_updated_str.replace("Z", "+00:00"))
-
-            # Get current time in UTC
-            now = datetime.now(timezone.utc)
-
-            # Calculate time difference in seconds
-            seconds_elapsed = (now - last_updated).total_seconds()
-
-            self.log(f"{entity} was last updated {seconds_elapsed} seconds ago.", level = "DEBUG")
-            return seconds_elapsed
-        else:
-            self.log(f"Could not retrieve last_updated for {entity}.", level = "DEBUG")
-            return None
+        # change based on power control
+        for power_control in self._power_controls:
+            # record changes
+            self.listen_state(self.control_change_callback, power_control, new="on", old="off")
+            self.listen_state(self.control_change_callback, power_control, new="off", old="on")
+            # act on changes delayed
+            self.listen_state(self.sensor_change_callback, power_control, new="on", old="off", duration=60)
+            self.listen_state(self.sensor_change_callback, power_control, new="off", old="on", duration=60)
 
 
-    def count_device_trackers(self, state):
-        count = 0
-        for sensor in self._device_trackers:
-            if self.get_state(sensor) == state:
-                count = count + 1
-        return count
+        # Set start time to now, aligning to the next full 10-minute mark
+        self.run_every(self.perodic_time_callback, "now+10", 10 * 60)
 
-    def count_home_device_trackers(self):
-        return self.count_device_trackers("home")
-
-    def count_not_home_device_trackers(self):
-        return self.count_device_trackers("not_home")
+        self.log("Startup finished")
 
     def count_switches(self, state):
+        self.log(f"count switches in state {state}", level = "DEBUG")
+        if state == 'any':
+            return len(self._power_controls)
+
         count = 0
         for sensor in self._power_controls:
+            self.log(f"switch {sensor} is in state {self.get_state(sensor)}", level = "DEBUG")
             if self.get_state(sensor) == state:
                 count = count + 1
+
+        self.log(f"found {count} switch in state {state}", level = "DEBUG")
         return count
 
     def count_on_switches(self):
@@ -135,102 +88,76 @@ class PowerSaver(hass.Hass):
     def count_off_switches(self):
         return self.count_switches("off")
 
-    def in_guest_mode(self):
-        if self._guest_control is None:
-            return False
-        if self.get_state(self._guest_control) == 'on':
-            return True
-        else:
-            return False
-
-    def in_vacation_mode(self):
-        if self._vacation_control is None:
-            return False
-        if self.get_state(self._vacation_control) == 'on':
-            return True
-        else:
-            return False
-
-    def turn_on_power(self):
-        for device_control in self._power_controls:
-            self.log("Turning on device {}".format(device_control))
-            self.turn_on(device_control)
-
-    def turn_off_power(self):
-        for device_control in self._power_controls:
-            self.log("Turning off device {}".format(device_control))
-            self.turn_off(device_control)
-
-    def power_on_callback(self, entity, attribute, old, new, kwargs):
-        self.log(
-            "Callback power_on from {}:{} {}->{}".format(entity, attribute, old, new))
-
-        if self.now_is_between(self._night_start, self._night_end):
-            self.log("Ignoring status {} of {} because night time".format(
-                new, entity), level = "DEBUG")
+    def update_power(self):
+        if(self.is_internal_change_allowed() == False):
+            remaining_seconds = self.get_remaining_seconds_before_internal_change_is_allowed()
+            self.log(f"Doing nothing: Internal change is not allowed for {remaining_seconds:.2f} more seconds.")
             return
 
-        if(self.count_off_switches() == 0):
-            self.log("Ignoring callback because all switches are on", level = "DEBUG")
+        if(self.is_nobody_at_home()):
+            self.log("Turning off power because nobody is at home")
+            self.turn_off_power()
             return
 
+        if(self.in_vacation_mode()):
+            self.log("Turning off power because of vacation")
+            self.turn_off_power()
+            return
+
+        if(self.count_media_players('playing', ['Spotify', 'JUKE', 'Qobuz', 'AirPlay', 'MC Link', 'Server', 'Net Radio', 'Bluetooth', 'USB', 'Tuner'])):
+            self.log("Doing nothing because media player is plaing music")
+            return
+
+        if(self.count_on_motion_sensors() == 0 and self.count_motion_sensors('any') > 0):
+            self.log(f"Turning off power because of last motion was {self.get_last_motion():.2f} seconds ago")
+            self.turn_off_power()
+            return
+
+        if(self.is_alarm_armed_away()):
+            self.log("Turning off power because of alarm is armed away")
+            self.turn_off_power()
+            return
+
+        if(self.is_alarm_armed_vacation()):
+            self.log("Turning off power because of alarm is armed vacation")
+            self.turn_off_power()
+            return
+
+        if(self.is_alarm_triggered() or self.is_alarm_pending()):
+            self.log("Doing nothing because alarm is triggered or pending")
+            return
+
+        self.log(f"Turning on power because of last motion was {self.get_last_motion():.2f} seconds ago")
         self.turn_on_power()
 
-    def power_off_motion_callback(self, entity, attribute, old, new, kwargs):
-        self.log(
-            "Callback power_off_motion from {}:{} {}->{}".format(entity, attribute, old, new))
-
-        if(self.count_on_switches() == 0):
-            self.log("Ignoring callback because all switches are off", level = "DEBUG")
+    def turn_on_power(self):
+        if self.count_switches("any") == self.count_switches("on"):
+            self.log("All switches are already on")
             return
 
-        if(self.count_on_motion_sensors > 0):
-            self.log("Ignoring callback because there is still motion", level = "DEBUG")
+        for device_control in self._power_controls:
+            self.log(f"Turning on switch {device_control}")
+            self.turn_on(device_control)
+
+        self.record_internal_change()
+
+    def turn_off_power(self):
+        if self.count_switches("any") == self.count_switches("off"):
+            self.log("All switches are already off")
             return
 
-        self.turn_off_power()
+        for device_control in self._power_controls:
+            self.log(f"Turning off switch {device_control}")
+            self.turn_off(device_control)
 
-    def power_off_presence_callback(self, entity, attribute, old, new, kwargs):
-        self.log(
-            "Callback power_off_presence from {}:{} {}->{}".format(entity, attribute, old, new))
+        self.record_internal_change()
 
-        if(self.count_home_device_trackers() > 0):
-            self.log("Ignoring status {} of {} because {} device_trackers are still at home".format(
-                new, entity, self.count_home_device_trackers()), level = "DEBUG")
-            return
+    def perodic_time_callback(self, kwargs):
+        self.log(f"{inspect.currentframe().f_code.co_name}")
 
-        if(self.in_guest_mode()):
-            self.log("Ignoring status {} of {} because {} we have guests".format(
-                new, entity, self.count_home_device_trackers()), level = "DEBUG")
-            return
+        self.update_power()
 
-        if(self.count_on_motion_sensors > 0):
-            self.log("Ignoring callback because there is still motion", level = "DEBUG")
-            return
+    def sensor_change_callback(self, entity, attribute, old, new, kwargs):
+        self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
-        self.turn_off_power()
-
-    def power_off_force_callback(self, entity, attribute, old, new, kwargs):
-        self.log(
-            "Callback power_off_night from {}:{} {}->{}".format(entity, attribute, old, new))
-
-        if self.now_is_between(self._night_start, self._night_end) == False:
-            self.log("Ignoring status {} of {} because day time".format(
-                new, entity), level = "DEBUG")
-            return
-
-        self.turn_off_power()
-
-    def power_off_auto_timer_callback(self, kwargs):
-        self.log(
-            "Callback power_off_auto_timer".format())
-
-        if(self.count_on_switches() == 0):
-            self.log("Ignoring callback because all switches are off", level = "DEBUG")
-            return
-
-        if(self.count_on_motion_sensors >= 0):
-            self.log("Ignoring callback because there is still motion", level = "DEBUG")
-            return
-
-        self.turn_off_power()
+        self.update_power()

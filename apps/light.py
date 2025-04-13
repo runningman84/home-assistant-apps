@@ -1,40 +1,31 @@
 import appdaemon.plugins.hass.hassapi as hass
+from base import BaseApp
 from datetime import datetime, timezone
+import inspect
 
 #
-# LightSaver App
+# LightControl App
 #
 # Args:
 #
 # Concept:
 # PowerOn if motion
-# PowerOff if no motion for motion_duration
+# PowerOff if no motion for motion_timeout
 # PowerOff if vacation for vacation_duration
-# PowerOff if nobody at home for tracker_duration unless guest
+# PowerOff if nobody at home for tracker_timeout unless guest
 # Nothing on startup
 
-class LightSaver(hass.Hass):
+class LightControl(BaseApp):
 
     def initialize(self):
-        self.log("Hello from LightSaver")
+        super().initialize()
 
         # setup sane defaults
-        self._motion_sensors = self.args.get("motion_sensors", [])
-        self._illumination_sensors = self.args.get("illumination_sensors", [])
-        self._device_trackers = self.args.get("device_trackers", [])
-        self._media_players = self.args.get("media_players", [])
-
         self._lights = self.args.get("lights", [])
         self._fluxer_switch = self.args.get("fluxer_switch", None)
-        self._fluxer_interval = self.args.get("fluxer_interval", 300)
-        self._fluxer_handle = None
-        self._vacation_control = self.args.get("vacation_control", None)
-        self._guest_control = self.args.get("guest_control", None)
-        self._alarm_control_panel = self.args.get(
-            "alarm_control_panel", "alarm_control_panel.ha_alarm")
-        self._motion_duration = self.args.get("motion_duration", 60*5)
-        self._tracker_duration = self.args.get("tracker_duration", 60)
-        self._vacation_duration = self.args.get("vacation_duration", 60)
+        # self._fluxer_interval = self.args.get("fluxer_interval", 300)
+        # self._fluxer_handle = None
+
         self._min_elevation = self.args.get("min_elevation", 10)
         self._min_illumination = self.args.get("min_illumination", 25)
         self._max_illumination = self.args.get("max_illumination", 150)
@@ -42,229 +33,71 @@ class LightSaver(hass.Hass):
         self._night_scene = self.args.get("night_scene", None)
         self._on_scene = self.args.get("on_scene", None)
         self._off_scene = self.args.get("off_scene", None)
-        self._night_start = self.args.get("night_start", "23:15:00")
-        self._night_end = self.args.get("night_end", "06:30:00")
+        self._auto_turn_off = self.args.get("auto_turn_off", True)
+        self._auto_turn_on = self.args.get("auto_turn_on", True)
 
         # log current config
-        self.log("Got motion sensors {}".format(
-            self._motion_sensors))
-        self.log("Got device trackers {}".format(self._device_trackers))
         self.log("Got lights {}".format(self._lights))
-        self.log("Got motion duration {}".format(self._motion_duration))
-        self.log("Got tracker duration {}".format(self._tracker_duration))
-        self.log("Got vacation duration {}".format(self._vacation_duration))
-        self.log("Got {} device_trackers home and {} device_trackers not home".format(
-            self.count_home_device_trackers(), self.count_not_home_device_trackers()))
-        self.log("Got guest_mode {}".format(self.in_guest_mode()))
-        self.log("Got vacation_mode {}".format(self.in_vacation_mode()))
 
         # start or stop power based on motion
         for sensor in self._motion_sensors:
-            self.listen_state(self.motion_on_callback, sensor,
-                              new="on", old="off")
-            self.listen_state(self.motion_off_callback, sensor,
-                              new="off", old="on", duration=self._motion_duration)
+            self.listen_state(self.sensor_change_callback, sensor,
+                                new="on", old="off")
+            self.listen_state(self.sensor_change_callback, sensor,
+                                new="off", old="on", duration=self._motion_timeout)
 
-        # stop light if it swichted on and no motion
-        for light in self._lights:
-            self.listen_state(self.light_on_callback, sensor,
-                              new="on", old="off", duration=self._motion_duration)
+        # change based on light control
+        for light_control in self._lights:
+            # record changes
+            self.listen_state(self.control_change_callback, light_control, new="on", old="off")
+            self.listen_state(self.control_change_callback, light_control, new="off", old="on")
+            # act on changes delayed
+            self.listen_state(self.sensor_change_callback, light_control, new="on", old="off", duration=60)
+            self.listen_state(self.sensor_change_callback, light_control, new="off", old="on", duration=60)
 
+        if self._fluxer_switch is not None:
+            # record changes
+            self.listen_state(self.control_change_callback, self._fluxer_switch, new="on", old="off")
+            self.listen_state(self.control_change_callback, self._fluxer_switch, new="off", old="on")
+
+        # start or stop based on media player stuff
         for sensor in self._media_players:
-            self.listen_state(self.motion_on_callback, sensor,
-                              new="on", old="off")
+            self.listen_state(self.sensor_change_callback, sensor,
+                                new="on", old="off")
 
         # stop power if nobody is home
         for sensor in self._device_trackers:
-            self.listen_state(self.power_off_presence_callback,
-                              sensor, new="not_home", old="home", duration=self._tracker_duration)
+            self.listen_state(self.sensor_change_callback,
+                                sensor, new="not_home", old="home", duration=self._tracker_timeout)
 
         # stop power during vacation
         if self._vacation_control is not None:
-            self.listen_state(self.power_off_presence_callback, self._vacation_control,
-                              new="on", old="off", duration=self._vacation_duration)
+            self.listen_state(self.sensor_change_callback, self._vacation_control,
+                                new="on", old="off", duration=self._vacation_timeout)
 
         # start power based on illumination
         for sensor in self._illumination_sensors:
-            self.listen_state(self.illumination_change_callback, sensor)
+            self.listen_state(self.sensor_change_callback, sensor)
 
         # start or stop power based on elevation
-        self.listen_state(self.elevation_change_callback, "sun.sun", attribute = "elevation")
+        self.listen_state(self.sensor_change_callback, "sun.sun", attribute = "elevation")
 
-        if(self.count_on_motion_sensors() == 0):
-            self.turn_off_lights()
-            self.stop_fluxer()
+        if self._alarm_control_panel is not None and self._fluxer_switch is not None:
+            self.listen_state(self.flux_change_callback, self._alarm_control_panel)
 
-        if(self.count_on_motion_sensors() > 0 and self.below_min_illumination()):
-            self.turn_on_lights()
-            self.start_fluxer()
+        # Set start time to now, aligning to the next full 10-minute mark
+        self.run_every(self.perodic_time_callback, "now+10", 10 * 60)
 
-    def count_motion_sensors(self, state):
-        if state == 'any':
-            return len(self._motion_sensors)
+        self.log("Startup finished")
 
-        count = 0
-        for sensor in self._motion_sensors:
-            if self.get_state(sensor) == state:
-                count = count + 1
-            elif self.get_seconds_since_update(sensor) < self._motion_duration:
-                count = count + 1
-        return count
 
-    def count_on_motion_sensors(self):
-        return self.count_motion_sensors("on")
-
-    def count_off_motion_sensors(self):
-        return self.count_motion_sensors("off")
-
-    def get_seconds_since_update(self, entity):
-        last_updated_str = self.get_state(entity, attribute="last_updated")
-
-        if last_updated_str:
-            # Convert ISO string to datetime object
-            last_updated = datetime.fromisoformat(last_updated_str.replace("Z", "+00:00"))
-
-            # Get current time in UTC
-            now = datetime.now(timezone.utc)
-
-            # Calculate time difference in seconds
-            seconds_elapsed = (now - last_updated).total_seconds()
-
-            self.log(f"{entity} was last updated {seconds_elapsed} seconds ago.", level = "DEBUG")
-            return seconds_elapsed
-        else:
-            self.log(f"Could not retrieve last_updated for {entity}.", level = "DEBUG")
-            return None
-
-    def count_media_players(self, state):
-        self.log("count media players in state {}".format(state), level = "DEBUG")
-        if state == 'any':
-            return len(self._media_players)
-
-        count = 0
-        for sensor in self._media_players:
-            self.log("media player {} is in state {}".format(sensor, self.get_state(sensor)), level = "DEBUG")
-            if self.get_state(sensor) == state:
-                count = count + 1
-
-        self.log("found {} media players in state {}".format(count, state), level = "DEBUG")
-        return count
-
-    def count_on_media_players(self):
-        return self.count_media_players("on")
-
-    def count_off_media_players(self):
-        return self.count_media_players("off")
-
-    def count_lights(self, state):
-        self.log("count lights in state {}".format(state), level = "DEBUG")
-        if state == 'any':
-            return len(self._lights)
-
-        count = 0
-        for sensor in self._lights:
-            self.log("light {} is in state {}".format(sensor, self.get_state(sensor)), level = "DEBUG")
-            if self.get_state(sensor) == state:
-                count = count + 1
-
-        self.log("found {} lights in state {}".format(count, state), level = "DEBUG")
-        return count
-
-    def count_on_lights(self):
-        return self.count_lights("on")
-
-    def count_off_lgihts(self):
-        return self.count_motion("off")
-
-    def count_device_trackers(self, state):
-        self.log("count device trackers in state {}".format(state), level = "DEBUG")
-        if state == 'any':
-            return len(self._device_trackers)
-
-        count = 0
-        for sensor in self._device_trackers:
-            self.log("device tracker {} is in state {}".format(sensor, self.get_state(sensor)), level = "DEBUG")
-            if self.get_state(sensor) == state:
-                count = count + 1
-
-        self.log("found {} device trackers in state {}".format(count, state), level = "DEBUG")
-        return count
-
-    def count_home_device_trackers(self):
-        return self.count_device_trackers("home")
-
-    def count_not_home_device_trackers(self):
-        return self.count_device_trackers("not_home")
-
-    def in_guest_mode(self):
-        if self._guest_control is None:
-            return False
-        if self.get_state(self._guest_control) == 'on':
-            return True
-        else:
-            return False
-
-    def in_vacation_mode(self):
-        if self._vacation_control is None:
-            return False
-        if self.get_state(self._vacation_control) == 'on':
-            return True
-        else:
-            return False
-
-    def is_alarm_armed_away(self):
-        return self.is_alarm_in_state('armed_away')
-
-    def is_alarm_armed_home(self):
-        return self.is_alarm_in_state('armed_home')
-
-    def is_alarm_armed_night(self):
-        return self.is_alarm_in_state('armed_night')
-
-    def is_alarm_armed_vacation(self):
-        return self.is_alarm_in_state('armed_vacation')
-
-    def is_alarm_disarmed(self):
-        return self.is_alarm_in_state('disarmed')
-
-    def is_alarm_pending(self):
-        return self.is_alarm_in_state('pending')
-
-    def is_alarm_triggered(self):
-        return self.is_alarm_in_state('triggered')
-
-    def is_alarm_in_state(self, state):
-        if self._alarm_control_panel is None:
-            return False
-        if self.get_state(self._alarm_control_panel) == state:
-            return True
-        else:
-            return False
-
-    def get_alarm_state(self):
-        if self._alarm_control_panel is None:
-            return None
-        return self.get_state(self._alarm_control_panel)
-
-    def below_min_elevation(self, value = None):
-        if isinstance(value, int) or isinstance(value, float):
-            if value < self._min_elevation:
-                return True
-            return False
-
+    def below_min_elevation(self):
         if self.get_state("sun.sun", attribute = "elevation") < self._min_elevation:
             return True
         return False
 
-    def below_min_illumination(self, value = None):
-        if isinstance(value, int) or isinstance(value, float):
-            if value < self._min_illumination:
-                return True
-            return False
-
+    def below_min_illumination(self):
         for sensor in self._illumination_sensors:
-            #self.log("sensor state {} min ilu {} result {}".format(
-            #    self.get_state(sensor), self._min_illumination, self.get_state(sensor) < self._min_illumination))
             if self.get_state(sensor) == None:
                 return True
             if self.get_state(sensor) == 'unknown':
@@ -275,15 +108,8 @@ class LightSaver(hass.Hass):
                 return True
         return False
 
-    def above_max_illumination(self, value = None):
-        if isinstance(value, int) or isinstance(value, float):
-            if value < self._min_illumination:
-                return True
-            return False
-
+    def above_max_illumination(self):
         for sensor in self._illumination_sensors:
-            #self.log("sensor state {} min ilu {} result {}".format(
-            #    self.get_state(sensor), self._min_illumination, self.get_state(sensor) < self._min_illumination))
             if self.get_state(sensor) == None:
                 return False
             if self.get_state(sensor) == 'unknown':
@@ -294,165 +120,143 @@ class LightSaver(hass.Hass):
                 return True
         return False
 
-    def turn_on_lights(self):
-        if(self.count_on_motion_sensors() == 0):
-            self.log("Ignoring callback because there is no motion", level = "DEBUG")
+    def perodic_time_callback(self, kwargs):
+        self.log(f"{inspect.currentframe().f_code.co_name}")
+
+        self.update_lights()
+
+    def sensor_change_callback(self, entity, attribute, old, new, kwargs):
+        self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
+
+        self.update_lights()
+
+    def update_lights(self):
+        last_change = self.get_last_motion()
+
+        if(self.is_internal_change_allowed() == False):
+            remaining_seconds = self.get_remaining_seconds_before_internal_change_is_allowed()
+            self.log(f"Doing nothing: Internal change is not allowed for {remaining_seconds} more seconds.")
+            return
+
+        if(self.is_nobody_at_home()):
+            self.log("Turning off lights because nobody is at home")
+            self.turn_off_lights()
             return
 
         if(self.in_vacation_mode()):
-            self.log("Ignoring callback because vacation mode is on", level = "DEBUG")
+            self.log("Turning off lights because of vacation")
+            self.turn_off_lights()
+            return
+
+        if(self.count_on_motion_sensors() == 0 and self.count_motion_sensors('any') > 0):
+            self.log(f"Turning off lights because of last motion was {last_change:.2f} seconds ago")
+            self.turn_off_lights()
+            return
+
+        if(self.is_alarm_armed_away()):
+            self.log("Turning off lights because of alarm is armed away")
+            self.turn_off_lights()
+            return
+
+        if(self.is_alarm_armed_vacation()):
+            self.log("Turning off lights because of alarm is armed vacation")
+            self.turn_off_lights()
             return
 
         if(self.is_alarm_triggered() or self.is_alarm_pending()):
-            self.log("Ignoring callback because alarm state is {}".format(self.get_alarm_state()), level = "DEBUG")
+            self.log("Doing nothing because alarm is triggered or pending")
             return
 
-        if(self.count_on_lights() == self.count_lights("any")):
-            self.log("Ignoring callback because all lights are on", level = "DEBUG")
+        #if(self.count_motion_sensors('any') > 0):
+        #    self.log(f"Might turning on lights because of last motion was {last_change} seconds ago")
+
+        if(self._min_illumination is not None and self.below_min_illumination()):
+            self.log("Turning on lights because below min illumination")
+            self.turn_on_lights()
+            return
+        elif(self._min_elevation is not None and self.below_min_elevation()):
+            self.log("Turning on lights because below min elevation")
+            self.turn_on_lights()
+            return
+        elif(self._max_illumination is not None and self.above_max_illumination()):
+            self.log("Turning off lights because above max illumination")
+            self.turn_off_lights()
             return
 
-        if self.now_is_between(self._night_start, self._night_end):
+    def turn_on_lights(self):
+        if self.count_lights("any") == self.count_lights("on"):
+            self.log("All lights are already on")
+            return
+
+        if self.is_auto_turn_on_disabled():
+            self.log("Automatic turn on is disabled")
+            return
+
+        if self.is_time_in_night_window():
             if self._night_scene is not None:
-                self.log("Activating scene {}".format(self._night_scene))
-                self.stop_fluxer()
+                self.log(f"Activating night scene {self._night_scene}")
+                #self.stop_fluxer()
                 self.turn_on(self._night_scene)
         else:
             if self._on_scene is not None:
-                self.log("Activating scene {}".format(self._on_scene))
-                self.start_fluxer()
+                self.log(f"Activating normal scene {self._on_scene}")
+                #self.start_fluxer()
                 self.turn_on(self._on_scene)
+            else:
+                for light_control in self._lights:
+                    self.log(f"Turning on light {light_control}")
+                    self.turn_on(light_control)
+
+        self.record_internal_change()
 
     def turn_off_lights(self):
-        if(self.count_on_lights() == 0):
-            self.log("Ignoring callback because all lights are off", level = "DEBUG")
+        if self.count_lights("any") == self.count_lights("off"):
+            self.log("All lights are already off")
             return
 
-        if(self.count_on_media_players() > 0):
-            self.log("Ignoring callback because media_players are still on", level = "DEBUG")
-            return
-
-        if(self.is_alarm_triggered() or self.is_alarm_pending()):
-            self.log("Ignoring callback because alarm state is {}".format(self.get_alarm_state()), level = "DEBUG")
+        if self.is_auto_turn_off_disabled():
+            self.log("Automatic turn off is disabled")
             return
 
         if self._off_scene is not None:
-            self.log("Activating scene {}".format(self._off_scene))
+            self.log(f"Activating normal scene {self._off_scene}")
             self.turn_on(self._off_scene)
+        else:
+            for light_control in self._lights:
+                self.log(f"Turning off light {light_control}")
+                self.turn_off(light_control)
 
-    def motion_on_callback(self, entity, attribute, old, new, kwargs):
-        self.log(
-            "Callback motion_on from {}:{} {}->{}".format(entity, attribute, old, new))
+        self.record_internal_change()
 
-        if(self.above_max_illumination()):
-            self.log("Ignoring callback because there is still illumination", level = "DEBUG")
+    def is_auto_turn_on_enabled(self):
+        return self._auto_turn_on
+
+    def is_auto_turn_off_enabled(self):
+        return self._auto_turn_off
+
+    def is_auto_turn_on_disabled(self):
+        return not self.is_auto_turn_on_enabled()
+
+    def is_auto_turn_off_disabled(self):
+        return not self.is_auto_turn_off_enabled()
+
+    def flux_change_callback(self, entity, attribute, old, new, kwargs):
+        self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
+
+        if self._fluxer_switch is None:
             return
 
-        self.turn_on_lights()
-
-    def motion_off_callback(self, entity, attribute, old, new, kwargs):
-        self.log(
-            "Callback motion_off from {}:{} {}->{}".format(entity, attribute, old, new))
-
-        if(self.count_on_motion_sensors() > 0):
-            self.log("Ignoring callback because there is still motion", level = "DEBUG")
-            return
-
-        self.turn_off_lights()
-
-    def light_on_callback(self, entity, attribute, old, new, kwargs):
-        self.log(
-            "Callback light_on from {}:{} {}->{}".format(entity, attribute, old, new))
-
-        if(self.count_on_motion_sensors() > 0):
-            self.log("Ignoring callback because there is still motion", level = "DEBUG")
-            return
-
-        self.turn_off_lights()
-
-    def illumination_change_callback(self, entity, attribute, old, new, kwargs):
-        self.log(
-            "Callback illumination_change from {}:{} {}->{}".format(entity, attribute, old, new))
-
-        if(self.below_min_illumination(new)):
-            if(self.below_min_illumination(old)):
-                self.log("Ignoring callback because old value was already below illumination threshold", level = "DEBUG")
-                return
-            self.turn_on_lights()
-        elif(self.above_max_illumination(new)):
-            if(self.above_max_illumination(old)):
-                self.log("Ignoring callback because old value was already above illumination threshold", level = "DEBUG")
-                return
-            self.turn_off_lights()
-
-    def elevation_change_callback(self, entity, attribute, old, new, kwargs):
-        self.log(
-            "Callback elevation_change from {}:{} {}->{}".format(entity, attribute, old, new))
-
-        if(self.below_min_elevation(old)):
-            self.log("Ignoring callback because old value was already below min elevation", level = "DEBUG")
-            return
-
-        if(self.above_max_illumination()):
-            self.log("Ignoring callback because illumation above threshold", level = "DEBUG")
-            return
-
-        if(self.below_min_elevation()):
-            self.turn_on_lights()
-
-    def power_off_presence_callback(self, entity, attribute, old, new, kwargs):
-        self.log(
-            "Callback power_off_presence from {}:{} {}->{}".format(entity, attribute, old, new))
-
-        if(self.count_home_device_trackers() > 0):
-            self.log("Ignoring status {} of {} because {} device_trackers are still at home".format(
-                new, entity, self.count_home_device_trackers()), level = "DEBUG")
-            return
-
-        if(self.in_guest_mode()):
-            self.log("Ignoring status {} of {} because {} we have guests".format(
-                new, entity, self.count_home_device_trackers()), level = "DEBUG")
-            return
-
-        self.turn_off_power()
-
-
-
-    def update_fluxer(self, kwargs):
-        if self._fluxer_switch == None:
-            return
-
-        if(self.is_alarm_triggered() or self.is_alarm_pending()):
-            self.log("Ignoring update because alarm state is {}".format(self.get_alarm_state()), level = "DEBUG")
-            self._fluxer_handle = self.run_in(self.update_fluxer, self._fluxer_interval)
-            return
-
-        # FIXME does not seem to work
-        if(self.now_is_between(self._night_start, self._night_end)):
-            self.log("Ignoring update because in night mode")
-            self._fluxer_handle = self.run_in(self.update_fluxer, self._fluxer_interval)
-            return
-
-        self.log("Updating fluxer {}".format(self._fluxer_switch))
-        self.call_service("{}_update".format(self._fluxer_switch.replace('.', '/')))
-
-        self._fluxer_handle = self.run_in(self.update_fluxer, self._fluxer_interval)
-
-    def start_fluxer(self):
-        if self._fluxer_switch == None:
-            return
-
-        self.stop_fluxer()
-        self.log("Starting fluxer timer".format())
-        self._fluxer_handle = self.run_in(self.update_fluxer, 1)
-
-    def stop_fluxer(self):
-        if self._fluxer_switch == None:
-            return
-
-        if self._fluxer_handle is not None:
-            self.log("Stopping fluxer timer")
-            self.cancel_timer(self._fluxer_handle)
-            self._fluxer_handle = None
-
-    def is_fluxer_running(self):
-        return self._fluxer_handle is not None
+        if new in ['pending', 'triggered', 'arming', 'armed_away', 'armed_vacation', 'armed_night']:
+            if self.get_state(self._fluxer_switch) == 'on':
+                self.log(f"Turning off {self._fluxer_switch} because alarm state changed from {old} to {new}")
+                self.turn_off(self._fluxer_switch)
+                self.record_internal_change()
+            else:
+                self.log(f"Flux {self._fluxer_switch} is already on")
+        if new in ['disarmed', 'armed_home']:
+            if self.get_state(self._fluxer_switch) == 'off':
+                self.log(f"Turning on {self._fluxer_switch} because alarm state changed from {old} to {new}")
+                self.turn_on(self._fluxer_switch)
+                self.record_internal_change()
+            else:
+                self.log(f"Flux {self._fluxer_switch} is already off")

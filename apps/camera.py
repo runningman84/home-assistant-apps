@@ -30,7 +30,7 @@ class CameraImageScanner(hass.Hass):
         self.log(
             "Callback trigger_image_scan_callback from {}:{} {}->{}".format(entity, attribute, old, new))
         self.start_image_processing()
-
+    
     def trigger_stop_image_scan_callback(self, entity, attribute, old, new, kwargs):
         self.log(
             "Callback trigger_stop_image_scan_callback from {}:{} {}->{}".format(entity, attribute, old, new))
@@ -54,7 +54,7 @@ class CameraImageScanner(hass.Hass):
 
     def count_off_sensors(self):
         return self.count_sensors("off")
-
+    
     def get_next_run_in_sec(self):
         seconds = 1
         if(self._processing_count < 1000):
