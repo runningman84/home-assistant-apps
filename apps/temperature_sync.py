@@ -36,6 +36,14 @@ class TemperatureSync(hass.Hass):
 
     def sync_temperature(self):
         temperature = self.get_state(self._input)
+
+        try:
+            numeric_value = float(temperature)
+            # Proceed with numeric_value
+        except (TypeError, ValueError):
+            self.error(f"Ignoring invalid temperature value: {temperature}")
+            return
+
         for entity_id in self._outputs:
             self.log(f"[{entity_id}] Setting number value to {temperature}")
             self.call_service("number/set_value", entity_id=entity_id, value=temperature)

@@ -218,7 +218,7 @@ class BaseApp(hass.Hass):
         last_internal_change = self.get_last_internal_change()
 
         if last_internal_change is None:
-            self.log("No internal change detected. Assuming the current change is external.", level = "DEBUG")
+            self.log("Current change is considered external. There was not any internal change recorded.", level = "DEBUG")
             return True
 
         # Get current time in UTC
@@ -236,10 +236,10 @@ class BaseApp(hass.Hass):
 
         # Determine if the change is external
         if remaining_time > 0:
-            self.log(f"Current change is NOT external. Wait {remaining_time:.2f} more seconds.", level = "DEBUG")
+            self.log(f"Current change is considered internal. Last recorded internal change was recorded {seconds_ago:.2f} seconds ago which is inside of timeout {timeout:.2f} window.", level = "DEBUG")
             return False
 
-        self.log("Current change is considered external.")
+        self.log(f"Current change is considered external. Last recorded internal change was recorded {seconds_ago:.2f} seconds ago which is outside of timeout {timeout:.2f} window.", level = "DEBUG")
         return True
 
     def is_last_change_external(self):
@@ -266,19 +266,19 @@ class BaseApp(hass.Hass):
             self.log(f"Internal change is NOT allowed yet. Wait {remaining_time:.2f} more seconds.", level = "DEBUG")
             return False
 
-        self.log("Internal change is now allowed.")
+        self.log("Internal change is now allowed.", level = "DEBUG")
         return True
 
     def get_remaining_seconds_before_internal_change_is_allowed(self):
         if not self.is_last_change_external():
-            self.log("No external change detected. Remaining time: 0 seconds")
+            self.log("No external change detected. Remaining time: 0 seconds", level="DEBUG")
             return 0
 
         now = datetime.now(timezone.utc).replace(microsecond=0)  # Remove milliseconds
         last_change = self.get_last_external_change()
 
         if last_change is None:
-            self.log("No record of last external change. Returning full timeout.", level="WARNING")
+            self.log("No record of last external change. Returning full timeout.", level="DEBUG")
             return self.get_external_change_timeout()
 
         last_change = last_change.replace(microsecond=0)  # Remove milliseconds
@@ -486,18 +486,16 @@ class BaseApp(hass.Hass):
     def control_change_callback(self, entity, attribute, old, new, kwargs):
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
-        if old is None:
+        if old in (None, 'unknown', 'unavailable'):
+            self.log(f"Ignoring change because old state is {old}")
             return
 
-        if old == 'unknown':
-            return
-
-        if old == 'unavailable':
+        if new in (None, 'unknown', 'unavailable'):
+            self.log(f"Ignoring change because new state is {new}")
             return
 
         if self.is_current_change_external():
             self.record_external_change()
-
 
     def notify(self, message, title=None, prio=0):
         # prio
@@ -606,7 +604,7 @@ class BaseApp(hass.Hass):
 
         # Check if message is empty and log an error if so.
         if not message:
-            self.log("Error: No message provided for media notification.")
+            self.error("No message provided for media notification.")
             return
 
         self.notify_alexa_media(message, title)

@@ -356,7 +356,7 @@ class ClimateControl(BaseApp):
         if entity_id is not None:
             fan_supported = self.is_fan_mode_supported(entity_id, 'Auto')
 
-        if self.is_overheating() and not self.is_time_in_night_window():
+        if self.is_overheating() and not self.is_time_in_night_window() and not self.is_summer():
             if self.count_on_motion_sensors() > 0 or self.is_somebody_at_home():
                 self.log("Setting desired hvac mode to fan_only due to overheat", level="DEBUG")
                 desired_mode = self.get_desired_hvac_mode_by_status("overheat")
@@ -442,6 +442,10 @@ class ClimateControl(BaseApp):
             self.log(f"[{entity_id}] Optimal fan mode is already set.")
             return
 
+        if not self.is_fan_mode_supported(entity_id, self.get_desired_fan_mode(entity_id)):
+            self.log(f"[{entity_id}] Cannot set optimal fan mode: Device does not support fan mode {self.get_desired_fan_mode(entity_id)}.")
+            return
+
         self.set_fan_mode(entity_id, self.get_desired_fan_mode(entity_id))
 
     def get_current_hvac_mode(self, entity_id):
@@ -471,9 +475,9 @@ class ClimateControl(BaseApp):
             self.log(f"[{entity_id}] Cannot set optimal temperature: Device is cooling during summer.")
             return
 
-        # if self.get_desired_hvac_mode() == 'off':
-        #     self.log(f"[{entity_id}] Cannot set optimal temperature: Device is off.")
-        #     return
+        if self.get_desired_hvac_mode(entity_id) == 'off':
+            self.log(f"[{entity_id}] Cannot set optimal temperature: Desired hvac mode is off.")
+            return
 
         # if self.is_overheating():
         #     self.log(f"[{entity_id}] Cannot set optimal temperature: Room is overheating.")
@@ -497,16 +501,17 @@ class ClimateControl(BaseApp):
             if attribute == 'temperature' and new == self.get_desired_temperature():
                 self.log("Ignoring externl change because it matches the desired temperature")
                 return
-            if attribute == 'hvac_mode' and new == self.get_desired_hvac_mode(entity):
-                self.log("Ignoring externl change because it matches the desired hvac mode")
-                return
             if attribute == 'temperature' and new == self._min_temperature and self.get_current_hvac_mode(entity) == 'off':
                 self.log("Ignoring externl change because it matches expected temperature for hvac mode moff")
+                return
+            if attribute == 'hvac_mode' and new == self.get_desired_hvac_mode(entity):
+                self.log("Ignoring externl change because it matches the desired hvac mode")
                 return
             if attribute == 'fan_mode' and new == self.get_desired_fan_mode(entity):
                 self.log("Ignoring externl change because it matches the desired fan mode")
                 return
-            self.record_external_change()
+
+        super().control_change_callback(entity, attribute, old, new, kwargs)
 
     def sensor_change_callback(self, entity, attribute, old, new, kwargs):
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
@@ -522,48 +527,50 @@ class ClimateControl(BaseApp):
         self.log(f"Current voc measurement: {self.get_voc_measurement()}µg/m³")
         self.log(f"Current co2 measurement: {self.get_co2_measurement()}ppm")
 
-        if(self.is_voc_okay() == False):
-            self.log(f"Critical voc measurement of {self.get_voc_measurement()}µg/m³ detected", level="WARNING")
-
         if(self.is_aqi_okay() == False):
             self.log(f"Critical aqi measurement of {self.get_voc_measurement()} detected", level="WARNING")
+
+        if(self.is_voc_okay() == False):
+            self.log(f"Critical voc measurement of {self.get_voc_measurement()}µg/m³ detected", level="WARNING")
 
         if(self.is_co2_okay() == False):
             self.log(f"Critical co2 measurement of {self.get_co2_measurement()}ppm detected", level="WARNING")
 
         if(self.is_overheating() == True):
-            self.log(f"Overheating detected", level="WARNING")
+            self.log(f"Overheating detected, temperature measurement of {self.get_external_temperature()}°C", level="WARNING")
 
-        if(self.is_internal_change_allowed()):
-            for climate_control in self._climate_controls:
+        for climate_control in self._climate_controls:
 
-                self.log(f"[{climate_control}] Current target temperature: {self.get_target_temperature(climate_control)}°C")
-                self.log(f"[{climate_control}] Current internal temperature: {self.get_current_temperature(climate_control)}°C")
-                self.log(f"[{climate_control}] Desired temperature: {self.get_desired_temperature()}°C")
+            self.log(f"[{climate_control}] Current target temperature: {self.get_target_temperature(climate_control)}°C")
+            self.log(f"[{climate_control}] Current internal temperature: {self.get_current_temperature(climate_control)}°C")
+            self.log(f"[{climate_control}] Desired temperature: {self.get_desired_temperature()}°C")
+
+            self.log(f"[{climate_control}] Current hvac mode: {self.get_current_hvac_mode(climate_control)}")
+            self.log(f"[{climate_control}] Desired hvac mode: {self.get_desired_hvac_mode(climate_control)}")
+
+            if self.is_fan_mode_supported(climate_control, 'Auto'):
+                self.log(f"[{climate_control}] Current fan mode: {self.get_current_fan_mode(climate_control)}")
+                self.log(f"[{climate_control}] Desired fan mode: {self.get_desired_fan_mode(climate_control)}")
+
+            if(self.is_internal_change_allowed()):
                 self.set_optimal_temperature(climate_control)
-
-                self.log(f"[{climate_control}] Current hvac mode: {self.get_current_hvac_mode(climate_control)}")
-                self.log(f"[{climate_control}] Desired hvac mode: {self.get_desired_hvac_mode(climate_control)}")
                 self.set_optimal_hvac_mode(climate_control)
-
                 if self.is_fan_mode_supported(climate_control, 'Auto'):
-                    self.log(f"[{climate_control}] Current fan mode: {self.get_current_fan_mode(climate_control)}")
-                    self.log(f"[{climate_control}] Desired fan mode: {self.get_desired_fan_mode(climate_control)}")
                     self.set_optimal_fan_mode(climate_control)
-        else:
-            remaining_seconds = self.get_remaining_seconds_before_internal_change_is_allowed()
-            self.log(f"Doing nothing: Internal change is not allowed for {remaining_seconds:.2f} more seconds.")
+            else:
+                remaining_seconds = self.get_remaining_seconds_before_internal_change_is_allowed()
+                self.log(f"[{climate_control}] Doing nothing: Internal change is not allowed for {remaining_seconds:.2f} more seconds.")
 
 
     def set_temperature(self, entity_id, temperature):
         self.log(f"[{entity_id}] Changing temperature from {self.get_target_temperature(entity_id)} to {temperature}")
 
-        if self.get_target_temperature(entity_id) == temperature:
-            self.log(f"[{entity_id}] Is already at temperature {temperature}")
-            return
-
         if temperature is None:
             self.error(f"[{entity_id}] Cannot set temperature to None")
+            return
+
+        if self.get_target_temperature(entity_id) == temperature:
+            self.log(f"[{entity_id}] Is already at temperature {temperature}")
             return
 
         self.log(f"Calling service climate/set_temperature with entity_id {entity_id} and temperature: {temperature}")
@@ -589,16 +596,16 @@ class ClimateControl(BaseApp):
     def set_hvac_mode(self, entity_id, hvac_mode):
         self.log(f"[{entity_id}] Changing hvac_mode from {self.get_current_hvac_mode(entity_id)} to {hvac_mode}")
 
+        if hvac_mode is None:
+            self.error(f"[{entity_id}] Cannot set hvac_mode to None")
+            return
+
         if self.is_hvac_mode_supported(entity_id, hvac_mode) == False:
             self.log(f"[{entity_id}] Does not support hvac_mode {hvac_mode}")
             return
 
         if self.get_current_hvac_mode(entity_id) == hvac_mode:
             self.log(f"[{entity_id}] Is already in hvac_mode {hvac_mode}")
-            return
-
-        if hvac_mode is None:
-            self.error(f"[{entity_id}] Cannot set hvac_mode to None")
             return
 
         self.log(f"Calling service climate/set_hvac_mode with entity_id {entity_id} and temperature: {hvac_mode}")
@@ -610,19 +617,18 @@ class ClimateControl(BaseApp):
 
     def is_fan_mode_supported(self, entity_id, fan_mode):
         fan_modes = self.get_state(entity_id, attribute='fan_modes')
+        self.log(f"[{entity_id}] Got fan modes: {fan_modes}", level="DEBUG")
         if fan_modes is None:
             return False
-        # If it's a string, split it
-        if isinstance(fan_modes, str):
-            valid_modes = [mode.strip() for mode in fan_modes.split(',')]
-        elif isinstance(fan_modes, list):
-            valid_modes = [str(mode).strip() for mode in fan_modes]
-        else:
-            return False
-        return fan_mode in valid_modes
+        self.log(f"[{entity_id}] Fan mode {fan_modes} in valid fan modes {fan_modes}: {fan_mode in fan_mode}", level="DEBUG")
+        return fan_mode in fan_mode
 
     def set_fan_mode(self, entity_id, fan_mode = 'Auto'):
         self.log(f"[{entity_id}] Changing fan_mode from {self.get_current_fan_mode(entity_id)} to {fan_mode}")
+
+        if fan_mode is None:
+            self.error(f"[{entity_id}] Cannot set fan_mode to None")
+            return
 
         if self.is_fan_mode_supported(entity_id, fan_mode) == False:
             self.log(f"[{entity_id}] Does not support fan_mode {fan_mode}")
@@ -630,10 +636,6 @@ class ClimateControl(BaseApp):
 
         if self.get_current_fan_mode(entity_id) == fan_mode:
             self.log(f"[{entity_id}] Is already in fan_mode {fan_mode}")
-            return
-
-        if fan_mode is None:
-            self.error(f"[{entity_id}] Cannot set fan_mode to None")
             return
 
         self.log(f"Calling service climate/set_fan_mode with entity_id {entity_id} and fan_mode: {fan_mode}")
