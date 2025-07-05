@@ -12,6 +12,7 @@ class BaseApp(hass.Hass):
         self._opening_sensors = self.args.get("opening_sensors", [])
         self._motion_sensors = self.args.get("motion_sensors", [])
         self._illumination_sensors = self.args.get("illumination_sensors", [])
+        self._awake_sensors = self.args.get("awake_sensors", [])
         self._device_trackers = self.args.get("device_trackers", [])
         self._media_players = self.args.get("media_players", [])
 
@@ -22,6 +23,7 @@ class BaseApp(hass.Hass):
         self._motion_timeout = self.args.get("motion_timeout", 60*5)
         self._tracker_timeout = self.args.get("tracker_timeout", 60)
         self._vacation_timeout = self.args.get("vacation_timeout", 60)
+        self._awake_timeout = self.args.get("awake_timeout", 60*15)
 
         self._notify_service = self.args.get("notify_service", None)
         self._notify_title = self.args.get(
@@ -61,6 +63,8 @@ class BaseApp(hass.Hass):
         self.log(f"Got device trackers {self._device_trackers}")
         self.log(f"Got tracker timeout {self._tracker_timeout}")
         self.log(f"Got vacation timeout {self._vacation_timeout}")
+        self.log(f"Got awake sensors {self._awake_sensors}")
+        self.log(f"Got awake timeout {self._awake_timeout}")
         self.log(f"Got {self.count_home_device_trackers()} device_trackers home and {self.count_not_home_device_trackers()} device_trackers not home")
         self.log(f"Got guest_mode {self.in_guest_mode()}")
         self.log(f"Got vacation_mode {self.in_vacation_mode()}")
@@ -369,6 +373,36 @@ class BaseApp(hass.Hass):
     def count_not_home_device_trackers(self):
         return self.count_device_trackers("not_home")
 
+    def count_awake_sensors(self, state):
+        self.log(f"count awake sensors in state {state}", level = "DEBUG")
+        if state == 'any':
+            return len(self._awake_sensors)
+
+        count = 0
+        for sensor in self._awake_sensors:
+            self.log(f"awake sensor {sensor} is in state {self.get_state(sensor)}", level = "DEBUG")
+            if self.get_state(sensor) == state:
+                count = count + 1
+
+        self.log(f"found {count} awake sensor in state {state}", level = "DEBUG")
+        return count
+
+    def count_on_awake_sensors(self):
+        return self.count_awake_sensors("on")
+
+    def count_off_awake_sensors(self):
+        return self.count_awake_sensors("off")
+
+    def is_somebody_awake(self):
+        if self.count_on_awake_sensors() > 0:
+            return True
+        return False
+
+    def is_nobody_awake(self):
+        if self.count_on_awake_sensors() == 0:
+            return True
+        return False
+
     def is_somebody_at_home(self):
         if self.count_home_device_trackers() > 0:
             self.log("found device trackers", level = "DEBUG")
@@ -378,7 +412,7 @@ class BaseApp(hass.Hass):
             return True
         if self.in_vacation_mode():
             self.log("found vacation mode", level = "DEBUG")
-            return True
+            return False
         return False
 
     def is_nobody_at_home(self):
@@ -520,10 +554,13 @@ class BaseApp(hass.Hass):
         for user_id in self._telegram_user_ids:
             self.log(f"Calling service telegram_bot/send_message with user_id {user_id} and message: {message}")
             self.call_service('telegram_bot/send_message',
-                                title='*' + title + '*',
-                                target=user_id,
-                                message=message,
-                                disable_notification=True)
+                                service_data={
+                                    "title" : f'*{title}*',
+                                    "target": user_id,
+                                    "message" : message,
+                                    "disable_notification": True
+                                }
+            )
 
     def notify_notify(self, message, title=None):
         if title is None:
@@ -533,8 +570,11 @@ class BaseApp(hass.Hass):
             service_name = f"notify/mobile_app_{target}"
             self.log(f"Calling service {service_name} message: {message}")
             self.call_service(service_name,
-                                title='*' + title + '*',
-                                message=message)
+                                service_data={
+                                    "title" : f'*{title}*',
+                                    "message" : message
+                                }
+            )
 
     def notify_persistent(self, message, title=None):
         if title is None:
@@ -542,8 +582,11 @@ class BaseApp(hass.Hass):
 
         self.log(f"Calling service persistent_notification/create with message: {message}")
         self.call_service('persistent_notification/create',
-                            title='*' + title + '*',
-                            message=message)
+                                service_data={
+                                    "title" : f'*{title}*',
+                                    "message" : message
+                                }
+        )
 
     def notify_awtrix(self, message, app = None, duration = 60, lifetime = 600):
         if app is None:

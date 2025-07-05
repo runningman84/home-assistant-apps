@@ -150,7 +150,6 @@ class AlarmControl(BaseApp):
         # Achtung Einbruchsalarm Folgende Sensoren haben: a, b, c ausgelöst
 
         # Assign sensor values
-
         self._sensors['armed_home']['group1'] = self.args.get("armed_home_binary_sensors", [])
         self._sensors['armed_home']['group2'] = self.args.get("armed_home_image_processing_sensors", [])
         self._sensors['armed_away']['group1'] = self.args.get("armed_away_binary_sensors", [])
@@ -185,9 +184,9 @@ class AlarmControl(BaseApp):
                 self.log(f"Setting up listeners for group {group_name}", level="DEBUG")
                 for sensor in sensor_list:  # Iterate over individual sensors
                     sensor_type = self.get_state(sensor, attribute = "device_class")
-                    self.log(f"[{sensor}] Setting up listener with type {sensor_type}", level="INFO")
+                    self.log(f"[{sensor}] Setting up listener with type {sensor_type}", level="DEBUG")
                     if sensor in self._sensor_listeners:
-                        self.log(f"[{sensor}] Skipping sensor because we are already listening to it", level="INFO")
+                        self.log(f"[{sensor}] Skipping sensor because we are already listening to it", level="DEBUG")
                         continue
                     self._sensor_listeners[sensor] = self.listen_state(self.sensor_change_callback, sensor)
                     self._sensor_listeners[sensor + '_delayed'] = self.listen_state(self.sensor_change_callback, sensor, duration=self._armed_away_sensor_delay)
@@ -513,7 +512,7 @@ class AlarmControl(BaseApp):
                 self.log(f"[{sensor}] Warning: Sensor temperature ({sensor_state}°C) exceeds the threshold of {self._fire_temperature_threshold}°C.", level="WARNING")
                 return False
             else:
-                self.log(f"[{sensor}] OK: Sensor temperature ({sensor_state}°C) is within the normal range.", level="INFO")
+                self.log(f"[{sensor}] OK: Sensor temperature ({sensor_state}°C) is within the normal range.", level="DEBUG")
                 return True
 
         if sensor_state != desired_state:
@@ -525,7 +524,7 @@ class AlarmControl(BaseApp):
                 self.log(f"[{sensor}] Warning: Sensor is in state '{sensor_state}', but it changed {last_update:.2f} seconds ago, which is within the timeout period.", level="WARNING")
                 return False
 
-        self.log(f"[{sensor}] OK: Sensor is in the desired state ('{sensor_state}').", level="INFO")
+        self.log(f"[{sensor}] OK: Sensor is in the desired state ('{sensor_state}').", level="DEBUG")
 
         return True
 
@@ -539,19 +538,19 @@ class AlarmControl(BaseApp):
         desired_arming_states = ['always', arming_state]
         desired_sensor_state = 'on'
 
-        self.log(f"Looking for sensors in category {desired_arming_states}")
+        self.log(f"Looking for sensors in category {desired_arming_states}", level="DEBUG")
 
         # Iterate over sensors and set up listeners
         for arming_state, sensor_dict in self._sensors.items():
 
             if arming_state not in desired_arming_states:
-                self.log(f"Ignoring category {arming_state}")
+                self.log(f"Ignoring category {arming_state}", level="DEBUG")
                 continue
 
-            self.log(f"Checking category {arming_state}")
+            self.log(f"Checking category {arming_state}", level="DEBUG")
             for group_name, sensor_list in sensor_dict.items():  # Get group name and sensor list
 
-                self.log(f"Checking group {group_name} in category {arming_state}")
+                self.log(f"Checking group {group_name} in category {arming_state}", level="DEBUG")
                 for sensor in sensor_list:  # Iterate over individual sensors
                     sensor_type = self.get_state(sensor, attribute = "device_class")
                     sensor_state = self.get_state(sensor)
@@ -560,15 +559,15 @@ class AlarmControl(BaseApp):
                     alarm_category = self.classify_alarm(sensor_type)
 
                     if sensor in self._sensors_ignored:
-                        self.log(f"[{sensor}] Skipping {sensor_type} sensor because it is in ignore list")
+                        self.log(f"[{sensor}] Skipping {sensor_type} sensor because it is in ignore list", level="DEBUG")
                         continue
 
                     if alarm_category is None:
-                        self.log(f"[{sensor}] Skipping {sensor_type} sensor because it is not a valid device class")
+                        self.log(f"[{sensor}] Skipping {sensor_type} sensor because it is not a valid device class", level="DEBUG")
                         continue
 
                     if sensor_state in [None, "unknown", "unavailable"]:
-                        self.log(f"[{sensor}] Skipping {sensor_type} sensor because the state is invalid ({sensor_state})")
+                        self.log(f"[{sensor}] Skipping {sensor_type} sensor because the state is invalid ({sensor_state})", level="DEBUG")
                         continue  # Skip invalid states
 
                     if not self.check_sensor(sensor, 'off', timeout):
@@ -586,7 +585,7 @@ class AlarmControl(BaseApp):
         for alarm_type, sensor_list in alerts.items():
             for sensor in sensor_list:
                 if sensor not in self._sensors_ignored:
-                    self.log(f"[{sensor}] adding sensor to ignore list")
+                    self.log(f"[{sensor}] adding sensor to ignore list", level="DEBUG")
                     self._sensors_ignored.append(sensor)
 
     def count_alerts_by_arming_state(self, arming_state, timeout = None):
@@ -594,7 +593,7 @@ class AlarmControl(BaseApp):
 
         # Count items in each category
         category_counts = {category: len(items) for category, items in alerts.items()}
-        self.log(f"Found these alerts: {alerts}")
+        self.log(f"Found these alerts: {alerts}", level="DEBUG")
         total_count = sum(category_counts.values())
 
         return total_count
@@ -664,6 +663,10 @@ class AlarmControl(BaseApp):
         return None
 
     def setup(self):
+        self.log(f"Starting setup")
+
+        self.log(f"System is in state {self.get_alarm_state()}")
+
         if self.is_alarm_pending():
             self.log("Doing nothing because alarm is already pending")
             return
@@ -674,52 +677,57 @@ class AlarmControl(BaseApp):
             self.log("Doing nothing because alarm is already triggered")
             return
         if self.is_alarm_disarmed() and not self.is_auto_arming_allowed():
-            self.log("Doing nothing because alarm is disarmed and arming is not allowed")
+            self.log("Doing nothing because alarm is disarmed and auto arming is not allowed")
             return
 
         self.log(f"There are {self.count_home_device_trackers()} device_trackers home and {self.count_not_home_device_trackers()} device_trackers not home")
         self.log(f"Guest mode is set to {self.in_guest_mode()}")
-        self.log(f"Vacation mode mode is set to {self.in_vacation_mode()}")
+        self.log(f"Vacation mode is set to {self.in_vacation_mode()}")
 
         if self.is_nobody_at_home():
             if self.in_vacation_mode():
                 if self.is_alarm_armed_vacation():
                     self.log("Doing nothing because alarm is already armed vacation")
                     return
-                if self.is_auto_arming_allowed():
-                    self.arm_alarm('vacation')
-                    return
+
+                self.log("Arming alarm in vacation mode because nobody is at home and it vacation mode is enabled")
+                self.arm_alarm('vacation')
+                return
 
             if self.is_alarm_armed_away():
                 self.log("Doing nothing because alarm is already armed away")
                 return
-            if self.is_auto_arming_allowed():
-                self.arm_alarm('away')
-                return
+
+            self.log("Arming alarm in away mode")
+            self.arm_alarm('away')
             return
 
         if self.is_somebody_at_home():
             if self.is_time_in_arm_night_window():
-                if not self.is_auto_arming_allowed():
-                    self.log("Doing nothing because arming is not allowed right now")
-                    return
                 if self.is_alarm_armed_night():
                     self.log("Doing nothing because alarm is already armed night")
                     return
-
-                if self.is_auto_arming_allowed():
-                    self.arm_alarm('night')
+                if self.is_somebody_awake():
+                    self.log("Doing nothing because somebody is still awake")
                     return
+
+                self.log("Arming alarm in night mode because somebody is at home and it is night time")
+                self.arm_alarm('night')
+                return
 
             if self.is_alarm_armed_home():
                 self.log("Doing nothing because alarm is already armed home")
                 return
 
+            self.log("Disarming alarm because somebody is at home")
             self.disarm_alarm()
             return
 
 
     def analyze_and_trigger(self):
+        self.log(f"Starting analyze_and_trigger")
+
+        self.log(f"System is in state {self.get_alarm_state()}")
 
         if self.get_state("binary_sensor.zigbee2mqtt_bridge_connection_state") != 'on':
             self.log("Doing nothing because zigbee2mqtt_bridge_connection_state is not on")
@@ -730,7 +738,7 @@ class AlarmControl(BaseApp):
 
         self.log(f"There are {self.count_home_device_trackers()} device_trackers home and {self.count_not_home_device_trackers()} device_trackers not home")
         self.log(f"Guest mode is set to {self.in_guest_mode()}")
-        self.log(f"Vacation mode mode is set to {self.in_vacation_mode()}")
+        self.log(f"Vacation mode is set to {self.in_vacation_mode()}")
 
         if self.is_alarm_pending():
             self.log("Doing nothing because alarm is already pending")
@@ -758,25 +766,32 @@ class AlarmControl(BaseApp):
 
         self.log(f"Checking fire alerts, found {len(alerts.get('fire', []))}, threshold {self._fire_sensor_threshold}")
         if len(alerts.get('fire', [])) > 0:
+            self.log("Triggering fire alarm", level="WARNING")
             self.trigger_alarm('fire', alerts)
             return
 
         self.log(f"Checking water alerts, found {len(alerts.get('water', []))}, threshold {self._water_sensor_threshold}")
         if len(alerts.get('water', [])) > 0:
+            self.log("Triggering water alarm", level="WARNING")
             self.trigger_alarm('water', alerts)
             return
 
         if self.is_alarm_armed_away() or self.is_alarm_armed_vacation():
             self.log(f"Checking burglar alerts, found {len(alerts.get('burglar', []))}, threshold {self._armed_away_sensor_threshold}")
             if len(alerts.get('burglar', [])) >= self._armed_away_sensor_threshold:
+                self.log("Triggering burglar alarm", level="WARNING")
                 self.trigger_alarm('burglar', alerts)
                 return
 
         if self.is_alarm_armed_home() or self.is_alarm_armed_night():
             self.log(f"Checking burglar alerts, found {len(alerts.get('burglar', []))}, threshold {self._armed_home_sensor_threshold}")
             if len(alerts.get('burglar', [])) >= self._armed_home_sensor_threshold:
+                self.log("Triggering burglar alarm", level="WARNING")
                 self.trigger_alarm('burglar', alerts)
                 return
+
+        self.log(f"Finished analyze_and_trigger")
+
 
     def optimize_sensor_name(self, sensor):
         name = self.get_state(sensor, attribute = "friendly_name")
@@ -863,6 +878,7 @@ class AlarmControl(BaseApp):
 
         if entity in self._device_trackers and new == 'home':
             if self.is_alarm_armed() or self.is_alarm_pending() or self.is_alarm_triggered():
+                self.log("Somebody returned home therefore the alarm will be disabled")
                 self.disarm_alarm()
                 return
 

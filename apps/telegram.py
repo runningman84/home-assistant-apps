@@ -28,7 +28,7 @@ class TelegramBotEventListener(hass.Hass):
         self._user_ids = self.args.get("user_ids",[])
 
         """Listen to Telegram Bot events of interest."""
-        self.listen_event(self.receive_telegram_text, 'telegram_text')
+        #self.listen_event(self.receive_telegram_text, 'telegram_text')
         #self.listen_event(self.receive_telegram_callback, 'telegram_callback')
         #self.listen_event(self.receive_telegram_command, 'telegram_command')
         # Alarm Control
@@ -53,13 +53,13 @@ class TelegramBotEventListener(hass.Hass):
         self.listen_state(self.alarm_state_changed_callback,
                           self._alarm_control_panel, new="armed_home")
         # Guest Control
-        self.listen_event(self.receive_telegram_command_guest, 'telegram_command', command = '/guest_status')
-        self.listen_event(self.receive_telegram_command_guest, 'telegram_command', command = '/guest_enable')
-        self.listen_event(self.receive_telegram_command_guest, 'telegram_command', command = '/guest_disable')
-        self.listen_event(self.receive_telegram_command_guest, 'telegram_command', command = '/guest_on')
-        self.listen_event(self.receive_telegram_command_guest, 'telegram_command', command = '/guest_off')
-        self.listen_event(self.receive_telegram_callback_guest, 'telegram_callback', data = '/guest_enable')
-        self.listen_event(self.receive_telegram_callback_guest, 'telegram_callback', data = '/guest_disable')
+        #self.listen_event(self.receive_telegram_command_guest, 'telegram_command', command = '/guest_status')
+        #self.listen_event(self.receive_telegram_command_guest, 'telegram_command', command = '/guest_enable')
+        #self.listen_event(self.receive_telegram_command_guest, 'telegram_command', command = '/guest_disable')
+        #self.listen_event(self.receive_telegram_command_guest, 'telegram_command', command = '/guest_on')
+        #self.listen_event(self.receive_telegram_command_guest, 'telegram_command', command = '/guest_off')
+        #self.listen_event(self.receive_telegram_callback_guest, 'telegram_callback', data = '/guest_enable')
+        #self.listen_event(self.receive_telegram_callback_guest, 'telegram_callback', data = '/guest_disable')
 
 
     def receive_telegram_command(self, event_id, payload_event, *args):
@@ -95,11 +95,13 @@ class TelegramBotEventListener(hass.Hass):
         for user_id in self._user_ids:
             self.log("Sending message {} to user_id {}".format(msg, user_id))
             self.call_service('telegram_bot/send_message',
-                              title='*Alarm Control*',
-                              target=user_id,
-                              message=msg,
-                              inline_keyboard=keyboard,
-                              disable_notification=disable_notification)
+                                service_data={
+                                    "title" : '*Alarm Control*',
+                                    "target" : user_id,
+                                    "message" : msg,
+                                    "inline_keyboard" : keyboard,
+                                    "disable_notification" : disable_notification
+                                })
 
     def receive_telegram_callback_alarm(self, event_id, payload_event, *args):
         """Event listener for Telegram callback queries."""
@@ -117,38 +119,46 @@ class TelegramBotEventListener(hass.Hass):
 
             # Answer callback query
             self.call_service('telegram_bot/answer_callback_query',
-                              message='Alarm armed home!',
-                              callback_query_id=callback_id,
-                              show_alert=True)
+                                service_data={
+                                    "message" : 'Alarm armed home!',
+                                    "callback_query_id" : callback_id,
+                                    "show_alert" : True
+                                })
 
             # Edit the message origin of the callback query
             msg_id = payload_event['message']['message_id']
             user = payload_event['from_first']
             msg = "Alarm mode is {}".format(self.get_state(self._alarm_control_panel)).replace('_', ' ')
             self.call_service('telegram_bot/edit_message',
-                              chat_id=user_id,
-                              message_id=msg_id,
-                              title=title,
-                              message=msg)
+                                service_data={
+                                    "chat_id" : chat_id,
+                                    "message_id" : message_id,
+                                    "title" : title,
+                                    "message" : msg
+                                })
         elif data_callback == '/alarm_arm_away':  # Message editor:
             self.call_service("alarm_control_panel/alarm_arm_away",
                               entity_id=self._alarm_control_panel, code=self._alarm_pin)
 
             # Answer callback query
             self.call_service('telegram_bot/answer_callback_query',
-                              message='Alarm armed away!',
-                              callback_query_id=callback_id,
-                              show_alert=True)
+                                service_data={
+                                    "message" : 'Alarm armed away!',
+                                    "callback_query_id" : callback_id,
+                                    "show_alert" : True
+                                })
 
             # Edit the message origin of the callback query
             msg_id = payload_event['message']['message_id']
             user = payload_event['from_first']
             msg = "Alarm mode is {}".format(self.get_state(self._alarm_control_panel)).replace('_', ' ')
             self.call_service('telegram_bot/edit_message',
-                              chat_id=user_id,
-                              message_id=msg_id,
-                              title=title,
-                              message=msg)
+                                service_data={
+                                    "chat_id" : chat_id,
+                                    "message_id" : message_id,
+                                    "title" : title,
+                                    "message" : msg
+                                })
         elif data_callback == '/alarm_disarm':  # Message editor:
             self.call_service("alarm_control_panel/alarm_disarm",
                               entity_id=self._alarm_control_panel, code=self._alarm_pin)
@@ -164,98 +174,103 @@ class TelegramBotEventListener(hass.Hass):
             user = payload_event['from_first']
             msg = "Alarm mode is {}".format(self.get_state(self._alarm_control_panel)).replace('_', ' ')
             self.call_service('telegram_bot/edit_message',
-                              chat_id=user_id,
-                              message_id=msg_id,
-                              title=title,
-                              message=msg)
+                                service_data={
+                                    "chat_id" : chat_id,
+                                    "message_id" : message_id,
+                                    "title" : title,
+                                    "message" : msg
+                                })
                               #inline_keyboard=keyboard)
 
 
 
-    def receive_telegram_command_guest(self, event_id, payload_event, *args):
-        """Event listener for Telegram callback queries."""
-        assert event_id == 'telegram_command'
-        #assert self._alarm_control_panel is not None
-        user_id = payload_event['user_id']
-        chat_id = payload_event['chat_id']
+    # def receive_telegram_command_guest(self, event_id, payload_event, *args):
+    #     """Event listener for Telegram callback queries."""
+    #     assert event_id == 'telegram_command'
+    #     #assert self._alarm_control_panel is not None
+    #     user_id = payload_event['user_id']
+    #     chat_id = payload_event['chat_id']
 
-        self.log("Got command {}".format(payload_event))
+    #     self.log("Got command {}".format(payload_event))
 
-        keyboard = None
-        if payload_event['command'] == '/guest_enable':
-            self.turn_on(self._guest_control)
-            msg = "Guest mode enabled"
-        elif payload_event['command'] == '/guest_on':
-            self.turn_on(self._guest_control)
-            msg = "Guest mode enabled"
-        elif payload_event['command'] == '/guest_disable':
-            self.turn_off(self._guest_control)
-            msg = "Guest mode disabled"
-        elif payload_event['command'] == '/guest_off':
-            self.turn_off(self._guest_control)
-            msg = "Guest mode disabled"
-        elif payload_event['command'] == '/guest_status':
-            if(self.get_state(self._guest_control ) == 'on'):
-                keyboard = [[("Disable guest mode", "/guest_disable")]]
-            else:
-                keyboard = [[("Enable guest mode", "/guest_enable")]]
-            msg = "Guest mode is {}".format(self.get_state(self._guest_control))
+    #     keyboard = None
+    #     if payload_event['command'] == '/guest_enable':
+    #         self.turn_on(self._guest_control)
+    #         msg = "Guest mode enabled"
+    #     elif payload_event['command'] == '/guest_on':
+    #         self.turn_on(self._guest_control)
+    #         msg = "Guest mode enabled"
+    #     elif payload_event['command'] == '/guest_disable':
+    #         self.turn_off(self._guest_control)
+    #         msg = "Guest mode disabled"
+    #     elif payload_event['command'] == '/guest_off':
+    #         self.turn_off(self._guest_control)
+    #         msg = "Guest mode disabled"
+    #     elif payload_event['command'] == '/guest_status':
+    #         if(self.get_state(self._guest_control ) == 'on'):
+    #             keyboard = [[("Disable guest mode", "/guest_disable")]]
+    #         else:
+    #             keyboard = [[("Enable guest mode", "/guest_enable")]]
+    #         msg = "Guest mode is {}".format(self.get_state(self._guest_control))
 
-        self.call_service('telegram_bot/send_message',
-                          title='*Guest Control*',
-                          target=user_id,
-                          message=msg,
-                          inline_keyboard=keyboard,
-                          disable_notification=True)
+    #     self.call_service('telegram_bot/send_message',
+    #                         service_data={
+    #                             "title" : '*Guest Control*',
+    #                             "target" : user_id,
+    #                             "message" : msg,
+    #                             "inline_keyboard" : keyboard,
+    #                             "disable_notification" : True
+    #                         })
 
-    def receive_telegram_callback_guest(self, event_id, payload_event, *args):
-        """Event listener for Telegram callback queries."""
-        assert event_id == 'telegram_callback'
-        data_callback = payload_event['data']
-        callback_id = payload_event['id']
-        user_id = payload_event['user_id']
 
-        self.log("Got callback {}".format(payload_event))
+    # def receive_telegram_callback_guest(self, event_id, payload_event, *args):
+    #     """Event listener for Telegram callback queries."""
+    #     assert event_id == 'telegram_callback'
+    #     data_callback = payload_event['data']
+    #     callback_id = payload_event['id']
+    #     user_id = payload_event['user_id']
 
-        if data_callback == '/guest_enable':  # Message editor:
-            self.turn_on(self._guest_control)
+    #     self.log("Got callback {}".format(payload_event))
 
-            # Answer callback query
-            self.call_service('telegram_bot/answer_callback_query',
-                              message='Guest Mode enabled!',
-                              callback_query_id=callback_id,
-                              show_alert=True)
+    #     if data_callback == '/guest_enable':  # Message editor:
+    #         self.turn_on(self._guest_control)
 
-            # Edit the message origin of the callback query
-            msg_id = payload_event['message']['message_id']
-            user = payload_event['from_first']
-            title = '*Guest Control*'
-            msg = "Guest mode is {}".format(self.get_state(self._guest_control))
-            self.call_service('telegram_bot/edit_message',
-                              chat_id=user_id,
-                              message_id=msg_id,
-                              title=title,
-                              message=msg)
-        elif data_callback == '/guest_disable':  # Message editor:
-            self.turn_off(self._guest_control)
+    #         # Answer callback query
+    #         self.call_service('telegram_bot/answer_callback_query',
+    #                           message='Guest Mode enabled!',
+    #                           callback_query_id=callback_id,
+    #                           show_alert=True)
 
-            # Answer callback query
-            self.call_service('telegram_bot/answer_callback_query',
-                              message='Guest Mode disabled!',
-                              callback_query_id=callback_id,
-                              show_alert=True)
+    #         # Edit the message origin of the callback query
+    #         msg_id = payload_event['message']['message_id']
+    #         user = payload_event['from_first']
+    #         title = '*Guest Control*'
+    #         msg = "Guest mode is {}".format(self.get_state(self._guest_control))
+    #         self.call_service('telegram_bot/edit_message',
+    #                           chat_id=user_id,
+    #                           message_id=msg_id,
+    #                           title=title,
+    #                           message=msg)
+    #     elif data_callback == '/guest_disable':  # Message editor:
+    #         self.turn_off(self._guest_control)
 
-            # Edit the message origin of the callback query
-            msg_id = payload_event['message']['message_id']
-            user = payload_event['from_first']
-            title = '*Guest Control*'
-            msg = "Guest mode is {}".format(self.get_state(self._guest_control))
-            self.call_service('telegram_bot/edit_message',
-                              chat_id=user_id,
-                              message_id=msg_id,
-                              title=title,
-                              message=msg)
-                              #inline_keyboard=keyboard)
+    #         # Answer callback query
+    #         self.call_service('telegram_bot/answer_callback_query',
+    #                           message='Guest Mode disabled!',
+    #                           callback_query_id=callback_id,
+    #                           show_alert=True)
+
+    #         # Edit the message origin of the callback query
+    #         msg_id = payload_event['message']['message_id']
+    #         user = payload_event['from_first']
+    #         title = '*Guest Control*'
+    #         msg = "Guest mode is {}".format(self.get_state(self._guest_control))
+    #         self.call_service('telegram_bot/edit_message',
+    #                           chat_id=user_id,
+    #                           message_id=msg_id,
+    #                           title=title,
+    #                           message=msg)
+    #                           #inline_keyboard=keyboard)
 
 
     def receive_telegram_command_alarm_status(self, event_id, payload_event, *args):
@@ -278,77 +293,10 @@ class TelegramBotEventListener(hass.Hass):
         msg = "Alarm status is {}".format(self.get_state(self._alarm_control_panel))
 
         self.call_service('telegram_bot/send_message',
-                          title='*Alarm System*',
-                          target=user_id,
-                          message=msg,
-                          disable_notification=True,
-                          inline_keyboard=keyboard)
-
-    def receive_telegram_text(self, event_id, payload_event, *args):
-        """Text repeater."""
-        assert event_id == 'telegram_text'
-        user_id = payload_event['user_id']
-        msg = 'You said: ``` %s ```' % payload_event['text']
-        keyboard = [[("Edit message", "/edit_msg"),
-                     ("Don't", "/do_nothing")],
-                    [("Remove this button", "/remove button")]]
-        self.call_service('telegram_bot/send_message',
-                          title='*Dumb automation*',
-                          target=user_id,
-                          message=msg,
-                          disable_notification=True,
-                          inline_keyboard=keyboard)
-
-    def receive_telegram_callback(self, event_id, payload_event, *args):
-        """Event listener for Telegram callback queries."""
-        assert event_id == 'telegram_callback'
-        data_callback = payload_event['data']
-        callback_id = payload_event['id']
-        user_id = payload_event['user_id']
-
-        self.log("Got callback {}".format(payload_event))
-
-
-        # keyboard = ["Edit message:/edit_msg, Don't:/do_nothing",
-        #             "Remove this button:/remove button"]
-        keyboard = [[("Edit message", "/edit_msg"),
-                     ("Don't", "/do_nothing")],
-                    [("Remove this button", "/remove button")]]
-
-        if data_callback == '/edit_msg':  # Message editor:
-            # Answer callback query
-            self.call_service('telegram_bot/answer_callback_query',
-                              message='Editing the message!',
-                              callback_query_id=callback_id,
-                              show_alert=True)
-
-            # Edit the message origin of the callback query
-            msg_id = payload_event['message']['message_id']
-            user = payload_event['from_first']
-            title = '*Message edit*'
-            msg = 'Callback received from %s. Message id: %s. Data: ``` %s ```'
-            self.call_service('telegram_bot/edit_message',
-                              chat_id=user_id,
-                              message_id=msg_id,
-                              title=title,
-                              message=msg % (user, msg_id, data_callback),
-                              inline_keyboard=keyboard)
-
-        elif data_callback == '/remove button':  # Keyboard editor:
-            # Answer callback query
-            self.call_service('telegram_bot/answer_callback_query',
-                              message='Callback received for editing the '
-                                      'inline keyboard!',
-                              callback_query_id=callback_id)
-
-            # Edit the keyboard
-            new_keyboard = keyboard[:1]
-            self.call_service('telegram_bot/edit_replymarkup',
-                              chat_id=user_id,
-                              message_id='last',
-                              inline_keyboard=new_keyboard)
-
-        elif data_callback == '/do_nothing':  # Only Answer to callback query
-            self.call_service('telegram_bot/answer_callback_query',
-                              message='OK, you said no!',
-                              callback_query_id=callback_id)
+                            service_data={
+                                "title" : '*Alarm System*',
+                                "target" : user_id,
+                                "message" : msg,
+                                "inline_keyboard" : keyboard,
+                                "disable_notification" : True
+                            })
