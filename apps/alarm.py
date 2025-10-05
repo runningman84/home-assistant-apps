@@ -397,9 +397,11 @@ class AlarmControl(BaseApp):
         self.log(f"Got event type {event_type}")
 
         if event_type == "single":
-            self.button_arm_home(entity_id)
+            if self.is_alarm_disarmed:
+                self.button_arm_home(entity_id)
         elif event_type == "double":
-            self.button_arm_away(entity_id)
+            if self.is_alarm_disarmed:
+                self.button_arm_away(entity_id)
         elif event_type == "hold":
             self.button_disarm(entity_id)
         elif event_type == "quadruple":
@@ -529,7 +531,7 @@ class AlarmControl(BaseApp):
         return True
 
 
-    def get_alerts(self, timeout = None, arming_state = None):
+    def get_alerts(self, timeout = None, arming_state = None, alarm_type = None):
         alerts = {}
 
         if arming_state is None:
@@ -557,6 +559,11 @@ class AlarmControl(BaseApp):
                     self.log(f"[{sensor}] Got {sensor_type} {sensor_state}", level="DEBUG")
 
                     alarm_category = self.classify_alarm(sensor_type)
+
+                    if alarm_type is not None:
+                        if alarm_category != alarm_type:
+                            self.log(f"[{sensor}] Skipping {sensor_type} sensor because it is not in desired alarm category", level="DEBUG")
+                            continue
 
                     if sensor in self._sensors_ignored:
                         self.log(f"[{sensor}] Skipping {sensor_type} sensor because it is in ignore list", level="DEBUG")
@@ -749,7 +756,7 @@ class AlarmControl(BaseApp):
             return
 
         if self.is_alarm_triggered():
-            alerts = self.get_alerts(None, self._arming_state)
+            alerts = self.get_alerts(None, self._arming_state, self._alarm_type)
             self.log("Updating alarm message")
             self.set_alarm_message(self.create_alarm_message(alerts))
             self.log("Doing nothing because alarm is already triggered")
@@ -812,10 +819,15 @@ class AlarmControl(BaseApp):
         messages = []
         sensors_by_category = {}
 
-        self.log(f"Creating alarm message based on this alerts: {alerts}")
+        self.log(f"Creating alarm message based on these alerts: {alerts}")
 
         for alarm_type, sensor_list in alerts.items():
-            self.log(f"Alarm Type: {alarm_type}")
+            self.log(f"Alarm Type: {alarm_type}", level="DEBUG")
+
+            if alarm_type != self._alarm_type:
+                self.log(f"Skipping alerts of type {alarm_type} because it does not match the current alarm type {self._alarm_type}", level="DEBUG")
+                continue
+
             translation_key = alarm_type + '_alert'
             messages.append(self.translate(translation_key))
             devices = []

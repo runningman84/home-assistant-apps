@@ -356,17 +356,18 @@ class ClimateControl(BaseApp):
         if entity_id is not None:
             fan_supported = self.is_fan_mode_supported(entity_id, 'Auto')
 
-        if self.is_overheating() and not self.is_time_in_night_window() and not self.is_summer():
-            if self.count_on_motion_sensors() > 0 or self.is_somebody_at_home():
-                self.log("Setting desired hvac mode to fan_only due to overheat", level="DEBUG")
+        if self.is_overheating():
+            if (self.is_somebody_at_home() and self.count_on_opening_sensors() == 0):
+                self.log(f"Setting desired hvac mode to {self.get_desired_hvac_mode_by_status("overheat")} due to overheat", level="DEBUG")
                 desired_mode = self.get_desired_hvac_mode_by_status("overheat")
             else:
                 desired_mode = 'off'
 
         if desired_mode == 'off' and fan_supported:
             if (self.is_aqi_okay() == False or self.is_voc_okay() == False):
-                self.log("Setting desired hvac mode to fan_only due to bad air", level="DEBUG")
-                desired_mode = 'fan_only'
+                if (self.is_somebody_at_home() and self.count_on_opening_sensors() == 0):
+                    self.log("Setting desired hvac mode to fan_only due to bad air", level="DEBUG")
+                    desired_mode = 'fan_only'
 
         return desired_mode
 
@@ -399,6 +400,9 @@ class ClimateControl(BaseApp):
         if entity_id is not None:
             if not self.is_fan_mode_supported(entity_id, 'Auto'):
                 return None
+
+        if self.is_time_in_night_window():
+            return desired_mode
 
         mapping = {
             0: 'Auto',
@@ -523,9 +527,12 @@ class ClimateControl(BaseApp):
         self.log(f"Current status: {self.get_current_status()}")
         self.log(f"Current external temperature: {self.get_external_temperature()}°C")
         self.log(f"Current outside temperature: {self.get_outside_temperature()}°C")
-        self.log(f"Current aqi measurement: {self.get_aqi_measurement()}")
-        self.log(f"Current voc measurement: {self.get_voc_measurement()}µg/m³")
-        self.log(f"Current co2 measurement: {self.get_co2_measurement()}ppm")
+        if self.get_aqi_measurement() is not None:
+            self.log(f"Current aqi measurement: {self.get_aqi_measurement()}")
+        if self.get_voc_measurement() is not None:
+            self.log(f"Current voc measurement: {self.get_voc_measurement()}µg/m³")
+        if self.get_co2_measurement() is not None:
+            self.log(f"Current co2 measurement: {self.get_co2_measurement()}ppm")
 
         if(self.is_aqi_okay() == False):
             self.log(f"Critical aqi measurement of {self.get_voc_measurement()} detected", level="WARNING")

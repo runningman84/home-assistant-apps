@@ -8,6 +8,7 @@ class FrigateControl(BaseApp):
         super().initialize()
 
         self._frigate_switches = self.args.get("frigate_switches", [])
+        self._frigate_cameras = self.args.get("frigate_cameras", [])
 
         self._auto_turn_on_motion = self.args.get("auto_turn_on_motion", True)
         self._auto_turn_on_opening = self.args.get("auto_turn_on_opening", True)
@@ -17,11 +18,20 @@ class FrigateControl(BaseApp):
         self._auto_turn_off_opening = self.args.get("auto_turn_off_opening", True)
         self._auto_turn_off_alarm = self.args.get("auto_turn_off_alarm", True)
 
+        self.log(f"Got frigate cameras: {self._frigate_cameras}")
+        self.log(f"Got frigate switches: {self._frigate_switches}")
+
         # change based on frigate switches
         for switch in self._frigate_switches:
             # record changes
             self.listen_state(self.control_change_callback, switch, new="on", old="off")
             self.listen_state(self.control_change_callback, switch, new="off", old="on")
+
+        # change based on frigate cameras
+        for camera in self._frigate_cameras:
+            # record changes
+            self.listen_state(self.control_change_callback, camera, new="streaming", old="idle")
+            self.listen_state(self.control_change_callback, camera, new="idle", old="streaming")
 
         # listen for alarm state changes
         if self._alarm_control_panel is not None:
@@ -122,7 +132,38 @@ class FrigateControl(BaseApp):
     def count_any_switches(self):
         return self.count_switches("any")
 
+    def count_cameras(self, state):
+        self.log(f"Count cameras in state {state}", level = "DEBUG")
+        if state == 'any':
+            return len(self._frigate_cameras)
+
+        count = 0
+        for sensor in self._frigate_cameras:
+            self.log(f"Camera {sensor} is in state {self.get_state(sensor)}", level = "DEBUG")
+            if self.get_state(sensor) == state:
+                count = count + 1
+
+        self.log(f"Found {count} cameras in state {state}", level = "DEBUG")
+        return count
+
+    def count_streaming_cameras(self):
+        return self.count_cameras("streaming")
+
+    def count_idle_cameras(self):
+        return self.count_cameras("idle")
+
+    def count_any_cameras(self):
+        return self.count_cameras("any")
+
     def turn_on_frigate(self):
+        self.turn_on_frigate_cameras()
+        self.turn_on_frigate_switches()
+
+    def turn_off_frigate(self):
+        self.turn_off_frigate_cameras()
+        self.turn_off_frigate_switches()
+
+    def turn_on_frigate_switches(self):
         if self.count_on_switches() == self.count_any_switches():
             self.log("All switches are already on")
             return
@@ -133,7 +174,7 @@ class FrigateControl(BaseApp):
 
         self.record_internal_change()
 
-    def turn_off_frigate(self):
+    def turn_off_frigate_switches(self):
         if self.count_off_switches() == self.count_any_switches():
             self.log("All switches are already off")
             return
@@ -141,5 +182,27 @@ class FrigateControl(BaseApp):
         for switch in self._frigate_switches:
             self.log(f"Turning on switch {switch}")
             self.turn_off(switch)
+
+        self.record_internal_change()
+
+    def turn_on_frigate_cameras(self):
+        if self.count_streaming_cameras() == self.count_any_cameras():
+            self.log("All cameras are already streaming")
+            return
+
+        for camera in self._frigate_cameras:
+            self.log(f"Turning on camera {camera}")
+            self.call_service("camera/turn_on", entity_id=camera)
+
+        self.record_internal_change()
+
+    def turn_off_frigate_cameras(self):
+        if self.count_idle_cameras() == self.count_any_cameras():
+            self.log("All cameras are already idle")
+            return
+
+        for camera in self._frigate_cameras:
+            self.log(f"Turning off camera {camera}")
+            self.call_service("camera/turn_off", entity_id=camera)
 
         self.record_internal_change()
