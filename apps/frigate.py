@@ -13,7 +13,6 @@ See module docstring and inline examples for usage.
 """
 
 from base import BaseApp
-import json
 import inspect
 
 
@@ -21,6 +20,12 @@ import inspect
 class FrigateControl(BaseApp):
 
     def initialize(self):
+        """
+        Initialize FrigateControl: read args, register listeners and schedule periodic checks.
+
+        This wires frigate switches, cameras and various sensors to callbacks so
+        `setup()` can react to state changes and timers.
+        """
         super().initialize()
 
         self._frigate_switches = self.args.get("frigate_switches", [])
@@ -74,7 +79,15 @@ class FrigateControl(BaseApp):
 
 
     def setup(self):
-        if(self.is_internal_change_allowed() == False):
+        """
+        Evaluate configured sensors and decide whether to (de)activate Frigate.
+
+        This central method is invoked from timers and state-change callbacks
+        and will call the appropriate turn_on/turn_off helpers based on the
+        configured auto_turn_on/auto_turn_off flags and the internal change
+        policy provided by `BaseApp`.
+        """
+        if not self.is_internal_change_allowed():
             remaining_seconds = self.get_remaining_seconds_before_internal_change_is_allowed()
             self.log(f"Doing nothing: Internal change is not allowed for {remaining_seconds} more seconds.")
             return
@@ -116,16 +129,44 @@ class FrigateControl(BaseApp):
                 return
 
     def periodic_time_callback(self, kwargs):
+        """
+        Periodic timer callback scheduled via run_every/run_daily.
+
+        Args:
+            kwargs (dict): timer arguments passed by AppDaemon (ignored).
+        """
+
         self.log(f"{inspect.currentframe().f_code.co_name}")
 
         self.setup()
 
     def sensor_change_callback(self, entity, attribute, old, new, kwargs):
+        """
+        Generic state-change handler that triggers a re-evaluation of Frigate state.
+
+        Args:
+            entity (str): entity id that changed.
+            attribute (str): attribute that changed.
+            old (str): previous state value.
+            new (str): new state value.
+            kwargs (dict): AppDaemon-provided kwargs.
+        """
+
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         self.setup()
 
     def count_switches(self, state = None):
+        """Return number of configured switches optionally filtered by state.
+
+        Args:
+            state: Optional string state to filter by (e.g. 'on' or 'off').
+
+        Returns:
+            int: count of switches matching the state or total switches when
+            state is None.
+        """
+
         self.log(f"Count switches in state {state}", level = "DEBUG")
         if state is None:
             return len(self._frigate_switches)
@@ -140,15 +181,31 @@ class FrigateControl(BaseApp):
         return count
 
     def count_on_switches(self):
+        """Shortcut: count switches in 'on' state."""
+
         return self.count_switches("on")
 
     def count_off_switches(self):
+        """Shortcut: count switches in 'off' state."""
+
         return self.count_switches("off")
 
     def count_any_switches(self):
+        """Shortcut: count all configured switches."""
+
         return self.count_switches()
 
     def count_cameras(self, state = None):
+        """Return number of configured cameras optionally filtered by state.
+
+        Args:
+            state: Optional string state to filter by (e.g. 'streaming' or 'idle').
+
+        Returns:
+            int: count of cameras matching the state or total cameras when
+            state is None.
+        """
+
         self.log(f"Count cameras in state {state}", level = "DEBUG")
         if state is None:
             return len(self._frigate_cameras)
@@ -163,23 +220,40 @@ class FrigateControl(BaseApp):
         return count
 
     def count_streaming_cameras(self):
+        """Shortcut: count cameras currently streaming."""
+
         return self.count_cameras("streaming")
 
     def count_idle_cameras(self):
+        """Shortcut: count cameras currently idle."""
+
         return self.count_cameras("idle")
 
     def count_any_cameras(self):
+        """Shortcut: count all configured cameras."""
+
         return self.count_cameras()
 
     def turn_on_frigate(self):
+        """Enable all configured Frigate cameras and switches.
+
+        This triggers both camera service calls and switch turn_on calls and
+        records the internal change so other listeners can ignore the
+        resulting state-changes for a short period.
+        """
+
         self.turn_on_frigate_cameras()
         self.turn_on_frigate_switches()
 
     def turn_off_frigate(self):
+        """Disable all configured Frigate cameras and switches and record change."""
+
         self.turn_off_frigate_cameras()
         self.turn_off_frigate_switches()
 
     def turn_on_frigate_switches(self):
+        """Turn on configured Frigate switches unless already all on."""
+
         if self.count_on_switches() == self.count_any_switches():
             self.log("All switches are already on")
             return
@@ -191,6 +265,8 @@ class FrigateControl(BaseApp):
         self.record_internal_change()
 
     def turn_off_frigate_switches(self):
+        """Turn off configured Frigate switches unless already all off."""
+
         if self.count_off_switches() == self.count_any_switches():
             self.log("All switches are already off")
             return
@@ -202,6 +278,8 @@ class FrigateControl(BaseApp):
         self.record_internal_change()
 
     def turn_on_frigate_cameras(self):
+        """Call camera.turn_on for all configured cameras unless already streaming."""
+
         if self.count_streaming_cameras() == self.count_any_cameras():
             self.log("All cameras are already streaming")
             return
@@ -213,6 +291,8 @@ class FrigateControl(BaseApp):
         self.record_internal_change()
 
     def turn_off_frigate_cameras(self):
+        """Call camera.turn_off for all configured cameras unless already idle."""
+
         if self.count_idle_cameras() == self.count_any_cameras():
             self.log("All cameras are already idle")
             return

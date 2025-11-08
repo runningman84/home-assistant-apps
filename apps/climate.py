@@ -33,9 +33,7 @@ climate_control:
 See module docstring and inline examples for usage.
 """
 
-import appdaemon.plugins.hass.hassapi as hass
 from base import BaseApp
-from datetime import datetime, timezone
 import inspect
 
 
@@ -158,7 +156,7 @@ class ClimateControl(BaseApp):
             self.listen_state(self.sensor_change_callback, sensor,
                                 new="off", old="on", duration=self._motion_timeout)
             self.listen_state(self.sensor_change_callback, sensor,
-                                new="on", old="off", duration=self._motion_timeout)
+                                new="on", old="off")
 
         # change based on settings in gui
         for temptype in ['home', 'away', 'vacation', 'open', 'motion', 'night']:
@@ -209,7 +207,15 @@ class ClimateControl(BaseApp):
         self.run_every(self.periodic_time_callback, "now+10", 10 * 60)
 
     def is_overheating(self):
-        if self.get_external_temperature() == None:
+        """Return True if external temperature indicates overheating.
+
+        Uses configured max overheat allowance to determine if the external
+        temperature significantly exceeds the desired temperature.
+
+        Returns:
+            bool
+        """
+        if self.get_external_temperature() is None:
             return False
 
         if self.get_external_temperature() > self.get_desired_temperature() + self._max_overheat_allowance:
@@ -218,12 +224,24 @@ class ClimateControl(BaseApp):
         return False
 
     def is_cooling(self, entity_id):
+        """Return True if the given entity is currently in cooling mode.
+
+        Args:
+            entity_id (str): climate entity id to query.
+
+        Returns:
+            bool
+        """
         if self.get_current_hvac_mode(entity_id) == 'cool':
             return True
         
         return False
 
     def is_summer(self):
+        """Return True when outside/forecast temperatures indicate 'summer' mode.
+
+        Compares current/forecasted temperatures to configured summer thresholds.
+        """
         if self.get_outside_temperature() > self._summer_temperature_threshold:
             return True
         if self.get_max_outside_temperature_today() > self._summer_temperature_threshold:
@@ -233,8 +251,12 @@ class ClimateControl(BaseApp):
         return False
 
     def is_aqi_okay(self):
+        """Return True if AQI measurement is below configured threshold.
+
+        Returns True if no AQI sensor is configured or the reading is unavailable.
+        """
         value_sensor = self.get_aqi_measurement()
-        if value_sensor == None:
+        if value_sensor is None:
             return True
 
         if int(value_sensor) > self._aqi_threshold:
@@ -243,8 +265,12 @@ class ClimateControl(BaseApp):
         return True
 
     def is_voc_okay(self):
+        """Return True if VOC measurement is below configured threshold.
+
+        Returns True if no VOC sensor is configured or the reading is unavailable.
+        """
         value_sensor = self.get_voc_measurement()
-        if value_sensor == None:
+        if value_sensor is None:
             return True
 
         if int(value_sensor) > self._voc_threshold:
@@ -253,8 +279,12 @@ class ClimateControl(BaseApp):
         return True
 
     def is_co2_okay(self):
+        """Return True if CO2 measurement is below configured threshold.
+
+        Returns True if no CO2 sensor is configured or the reading is unavailable.
+        """
         value_sensor = self.get_co2_measurement()
-        if value_sensor == None:
+        if value_sensor is None:
             return True
 
         if int(value_sensor) > self._co2_threshold:
@@ -263,6 +293,7 @@ class ClimateControl(BaseApp):
         return True
 
     def in_guest_mode(self):
+        """Return True when guest mode is enabled (via configured guest_control)."""
         if self._guest_control is None:
             return False
         if self.get_state(self._guest_control) == 'on':
@@ -271,6 +302,7 @@ class ClimateControl(BaseApp):
             return False
 
     def in_vacation_mode(self):
+        """Return True when vacation mode is active (via configured vacation_control)."""
         if self._vacation_control is None:
             return False
         if self.get_state(self._vacation_control) == 'on':
@@ -279,7 +311,11 @@ class ClimateControl(BaseApp):
             return False
 
     def get_current_status(self):
-        if(self.is_summer()):
+        """Determine the current climate status string.
+
+        Possible return values: 'summer', 'open', 'vacation', 'night', 'home', 'away', 'motion'.
+        """
+        if self.is_summer():
             return "summer"
         elif(self.count_on_opening_sensors() > 0):
             return "open"
@@ -296,7 +332,8 @@ class ClimateControl(BaseApp):
         return "home"
 
     def get_aqi_measurement(self):
-        if self._aqi_sensor == None:
+        """Return integer AQI measurement or None when unavailable."""
+        if self._aqi_sensor is None:
             return None
 
         value_sensor = self.get_state(self._aqi_sensor)
@@ -308,7 +345,8 @@ class ClimateControl(BaseApp):
         return int(value_sensor)
 
     def get_voc_measurement(self):
-        if self._voc_sensor == None:
+        """Return integer VOC measurement or None when unavailable."""
+        if self._voc_sensor is None:
             return None
 
         value_sensor = self.get_state(self._voc_sensor)
@@ -320,7 +358,8 @@ class ClimateControl(BaseApp):
         return int(value_sensor)
 
     def get_co2_measurement(self):
-        if self._co2_sensor == None:
+        """Return integer CO2 measurement or None when unavailable."""
+        if self._co2_sensor is None:
             return None
 
         value_sensor = self.get_state(self._co2_sensor)
@@ -332,7 +371,8 @@ class ClimateControl(BaseApp):
         return int(value_sensor)
 
     def get_humidity_measurement(self):
-        if self._humidity_sensor == None:
+        """Return humidity as float or None when unavailable."""
+        if self._humidity_sensor is None:
             return None
 
         value_sensor = self.get_state(self._humidity_sensor)
@@ -344,7 +384,8 @@ class ClimateControl(BaseApp):
         return float(value_sensor)
 
     def get_external_temperature(self):
-        if self._external_temperature_sensor == None:
+        """Return external temperature as float or None when unavailable."""
+        if self._external_temperature_sensor is None:
             return None
 
         value_sensor = self.get_state(self._external_temperature_sensor)
@@ -356,6 +397,10 @@ class ClimateControl(BaseApp):
         return float(value_sensor)
 
     def get_outside_temperature(self):
+        """Return the outside temperature, combining sensor and forecast when both available.
+
+        Returns a float; 0 if no forecast is available.
+        """
         value_sensor = None
         value_forecast = self.get_state('weather.forecast_home', attribute = "temperature")
         if value_forecast == 'unknown':
@@ -373,14 +418,15 @@ class ClimateControl(BaseApp):
         if value_sensor is not None and value_forecast is not None:
             return max(float(value_sensor), float(value_forecast))
 
-        if value_forecast == None:
+        if value_forecast is None:
             return 0
 
         return float(value_forecast)
 
     def get_max_outside_temperature_today(self):
+        """Return today's maximum outside temperature as float (or 0 if unknown)."""
         value = self.get_state('sensor.temperature_max_today')
-        if value == None:
+        if value is None:
             return 0
         if value == 'unknown':
             return 0
@@ -389,8 +435,9 @@ class ClimateControl(BaseApp):
         return float(value)
 
     def get_max_outside_temperature_tomorrow(self):
+        """Return tomorrow's maximum outside temperature as float (or 0 if unknown)."""
         value = self.get_state('sensor.temperature_max_tomorrow')
-        if value == None:
+        if value is None:
             return 0
         if value == 'unknown':
             return 0
@@ -399,6 +446,17 @@ class ClimateControl(BaseApp):
         return float(value)
 
     def get_desired_temperature_by_status(self, status):
+        """Return desired temperature for the given status.
+
+        The value is read from a temperature control entity when configured,
+        otherwise from the configured default temperature for the status.
+
+        Args:
+            status (str): status name such as 'home', 'night', 'away', etc.
+
+        Returns:
+            float or None: desired temperature (including offset) or None if not set.
+        """
         if vars(self)['_' + status + '_temperature_control'] is None:
             self.log(f"{'self._' + status + '_temperature_control'} is None", level="DEBUG")
             if vars(self)['_' + status + '_temperature'] is None:
@@ -409,15 +467,31 @@ class ClimateControl(BaseApp):
             return float(self.get_state(vars(self)['_' + status + '_temperature_control'])) + float(self._offset_temperature)
 
     def get_desired_temperature(self):
+        """Return the effective desired temperature considering status and minimum.
+
+        Returns the desired temperature for the current status, bounded by the
+        configured minimum temperature.
+        """
         desired_temp = self.get_desired_temperature_by_status(self.get_current_status())
         if desired_temp is None:
             return self._min_temperature
         return float(max(desired_temp, self._min_temperature))
 
     def get_desired_hvac_mode_by_status(self, status):
+        """Return the desired HVAC mode configured for a given status."""
         return vars(self)['_' + status + '_hvac_mode']
 
     def get_desired_hvac_mode(self, entity_id = None):
+        """Compute desired HVAC mode for the current status and entity.
+
+        The computed mode considers overheating, air quality and device fan support.
+
+        Args:
+            entity_id (str|None): optional climate entity id used to check feature support.
+
+        Returns:
+            str: desired hvac mode string.
+        """
         desired_mode = self.get_desired_hvac_mode_by_status(self.get_current_status())
 
         fan_supported = False
@@ -439,16 +513,20 @@ class ClimateControl(BaseApp):
             self.log(f"Setting desired hvac mode to off {desired_mode} to overheat", level="DEBUG")
 
         if desired_mode == 'off' and fan_supported:
-            if (self.is_aqi_okay() == False or self.is_voc_okay() == False):
-                if (self.is_somebody_at_home() and self.count_on_opening_sensors() == 0):
+            if not self.is_aqi_okay() or not self.is_voc_okay():
+                if self.is_somebody_at_home() and self.count_on_opening_sensors() == 0:
                     self.log("Setting desired hvac mode to fan_only due to bad air", level="DEBUG")
                     desired_mode = 'fan_only'
 
         return desired_mode
 
     def get_current_temperature(self, entity_id):
+        """Return the current measured temperature for a climate entity.
+
+        Returns 0 when the reading is missing/unavailable.
+        """
         value = self.get_state(entity_id, attribute = "current_temperature")
-        if value == None:
+        if value is None:
             return 0
         if value == 'unknown':
             return 0
@@ -457,8 +535,9 @@ class ClimateControl(BaseApp):
         return float(value)
 
     def get_target_temperature(self, entity_id):
+        """Return the target temperature configured on the climate entity."""
         value = self.get_state(entity_id, attribute = "temperature")
-        if value == None:
+        if value is None:
             return 0
         if value == 'unknown':
             return 0
@@ -467,9 +546,15 @@ class ClimateControl(BaseApp):
         return float(value)
 
     def get_current_fan_mode(self, entity_id):
+        """Return the current fan mode attribute of a climate entity."""
         return self.get_state(entity_id, attribute = "fan_mode")
 
     def get_desired_fan_mode(self, entity_id = None):
+        """Compute the desired fan mode based on air quality and time.
+
+        If an entity is provided, the function first checks whether the entity
+        supports the configured 'Auto' option. Returns None when unsupported.
+        """
         desired_mode = "Auto"
 
         if entity_id is not None:
@@ -515,7 +600,11 @@ class ClimateControl(BaseApp):
         return desired_mode
 
     def set_optimal_fan_mode(self, entity_id):
-        if self.get_desired_fan_mode() == None:
+        """Set the fan mode on the entity to the computed optimal value.
+
+        Performs support checks and avoids changes during cooling/summer.
+        """
+        if self.get_desired_fan_mode() is None:
             self.log(f"[{entity_id}] Cannot set optimal fan mode: Desired setting is None.", level="ERROR")
             return
 
@@ -534,9 +623,14 @@ class ClimateControl(BaseApp):
         self.set_fan_mode(entity_id, self.get_desired_fan_mode(entity_id))
 
     def get_current_preset_mode(self, entity_id):
+        """Return the current preset_mode attribute for a climate entity."""
         return self.get_state(entity_id, attribute = "preset_mode")
 
     def get_desired_preset_mode(self, entity_id = None):
+        """Return the desired preset mode (defaults to 'quiet').
+
+        Returns None if the entity doesn't support the desired preset.
+        """
         desired_mode = "quiet"
 
         if entity_id is not None:
@@ -546,7 +640,8 @@ class ClimateControl(BaseApp):
         return desired_mode
 
     def set_optimal_preset_mode(self, entity_id):
-        if self.get_desired_preset_mode() == None:
+        """Set the optimal preset mode on the entity, with checks for support and state."""
+        if self.get_desired_preset_mode() is None:
             self.log(f"[{entity_id}] Cannot set optimal preset mode: Desired setting is None.")
             return
 
@@ -565,10 +660,12 @@ class ClimateControl(BaseApp):
         self.set_preset_mode(entity_id, self.get_desired_preset_mode(entity_id))
 
     def get_current_hvac_mode(self, entity_id):
+        """Return the current HVAC mode (state) of the climate entity."""
         return self.get_state(entity_id)
 
     def set_optimal_hvac_mode(self, entity_id):
-        if self.get_desired_hvac_mode() == None:
+        """Apply the desired HVAC mode to the entity if it's supported and needed."""
+        if self.get_desired_hvac_mode() is None:
             self.log(f"[{entity_id}] Cannot set optimal hvac mode: Desired setting is None.", level="ERROR")
             return
 
@@ -583,7 +680,12 @@ class ClimateControl(BaseApp):
         self.set_hvac_mode(entity_id, self.get_desired_hvac_mode(entity_id))
 
     def set_optimal_temperature(self, entity_id):
-        if self.get_desired_temperature() == None:
+        """Enforce the desired temperature on the entity with safety checks.
+
+        Avoids making changes during cooling/summer or when the HVAC is off.
+        Records the change as an internal change.
+        """
+        if self.get_desired_temperature() is None:
             self.log(f"[{entity_id}] Cannot set optimal temperature: Desired temperature is None.", level="ERROR")
             return
 
@@ -606,11 +708,17 @@ class ClimateControl(BaseApp):
         self.set_temperature(entity_id, self.get_desired_temperature())
 
     def periodic_time_callback(self, kwargs):
+        """Scheduled callback executed at configured times to trigger updates."""
         self.log(f"{inspect.currentframe().f_code.co_name}")
 
         self.update_climate()
 
     def control_change_callback(self, entity, attribute, old, new, kwargs):
+        """Handle state changes originating from climate control entities.
+
+        Ignores external changes that match the desired settings to avoid
+        reacting to legitimate manual adjustments.
+        """
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         if self.is_current_change_external():
@@ -633,11 +741,17 @@ class ClimateControl(BaseApp):
         super().control_change_callback(entity, attribute, old, new, kwargs)
 
     def sensor_change_callback(self, entity, attribute, old, new, kwargs):
+        """Handle generic sensor changes and trigger an immediate climate update."""
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         self.update_climate()
 
     def update_climate(self):
+        """Main update loop: evaluate status and apply optimal settings to devices.
+
+        Logs overview information and enforces temperature, hvac, fan and preset
+        modes when internal change policy allows it.
+        """
         self.log("=== Updating climate controls ===")
         
         # Status and temperature overview
@@ -700,6 +814,10 @@ class ClimateControl(BaseApp):
 
 
     def set_temperature(self, entity_id, temperature):
+        """Set the temperature on the entity via Home Assistant service.
+
+        Performs basic validation and records the change as internal.
+        """
         self.log(f"[{entity_id}] Changing temperature from {self.get_target_temperature(entity_id)} to {temperature}")
 
         if temperature is None:
@@ -718,6 +836,10 @@ class ClimateControl(BaseApp):
         self.record_internal_change()
 
     def is_hvac_mode_supported(self, entity_id, hvac_mode):
+        """Return True if the climate entity supports the given HVAC mode.
+
+        Handles hvac_modes being provided as a comma-separated string or a list.
+        """
         hvac_modes = self.get_state(entity_id, attribute='hvac_modes')
         if hvac_modes is None:
             return False
@@ -731,13 +853,19 @@ class ClimateControl(BaseApp):
         return hvac_mode in valid_modes
 
     def set_hvac_mode(self, entity_id, hvac_mode):
+        """Set the hvac_mode on the climate entity after validation.
+
+        Args:
+            entity_id (str): climate entity id.
+            hvac_mode (str): desired hvac mode.
+        """
         self.log(f"[{entity_id}] Changing hvac_mode from {self.get_current_hvac_mode(entity_id)} to {hvac_mode}")
 
         if hvac_mode is None:
             self.error(f"[{entity_id}] Cannot set hvac_mode to None", level="ERROR")
             return
 
-        if self.is_hvac_mode_supported(entity_id, hvac_mode) == False:
+        if not self.is_hvac_mode_supported(entity_id, hvac_mode):
             self.log(f"[{entity_id}] Does not support hvac_mode {hvac_mode}", level="ERROR")
             return
 
@@ -753,6 +881,10 @@ class ClimateControl(BaseApp):
         self.record_internal_change()
 
     def is_fan_mode_supported(self, entity_id, fan_mode = None):
+        """Return True if the fan mode is supported by the entity.
+
+        If fan_mode is None, returns True when the entity reports any fan_modes.
+        """
         fan_modes = self.get_state(entity_id, attribute='fan_modes')
         self.log(f"[{entity_id}] Got fan modes: {fan_modes}", level="DEBUG")
         if fan_modes is None:
@@ -763,13 +895,14 @@ class ClimateControl(BaseApp):
         return fan_mode in fan_modes
 
     def set_fan_mode(self, entity_id, fan_mode = 'Auto'):
+        """Set the fan mode on the entity after validation and record it."""
         self.log(f"[{entity_id}] Changing fan_mode from {self.get_current_fan_mode(entity_id)} to {fan_mode}")
 
         if fan_mode is None:
             self.error(f"[{entity_id}] Cannot set fan_mode to None", level="ERROR")
             return
 
-        if self.is_fan_mode_supported(entity_id, fan_mode) == False:
+        if not self.is_fan_mode_supported(entity_id, fan_mode):
             self.log(f"[{entity_id}] Does not support fan_mode {fan_mode}", level="ERROR")
             return
 
@@ -786,6 +919,10 @@ class ClimateControl(BaseApp):
         #Auto, Low, LowMid, Mid, HighMid, High
 
     def is_preset_mode_supported(self, entity_id, preset_mode = None):
+        """Return True if the entity supports the given preset mode.
+
+        If preset_mode is None, returns True when any presets are reported.
+        """
         preset_modes = self.get_state(entity_id, attribute='preset_modes')
         self.log(f"[{entity_id}] Got preset modes: {preset_modes}", level="DEBUG")
         if preset_modes is None:
@@ -796,13 +933,18 @@ class ClimateControl(BaseApp):
         return preset_mode in preset_modes
 
     def set_preset_mode(self, entity_id, preset_mode = 'none'):
+        """Set the preset_mode on the climate entity after validation.
+
+        Records the change as internal so future external changes can be ignored
+        for a short time.
+        """
         self.log(f"[{entity_id}] Changing preset_mode from {self.get_current_preset_mode(entity_id)} to {preset_mode}")
 
         if preset_mode is None:
             self.error(f"[{entity_id}] Cannot set preset_mode to None", level="ERROR")
             return
 
-        if self.is_preset_mode_supported(entity_id, preset_mode) == False:
+        if not self.is_preset_mode_supported(entity_id, preset_mode):
             self.log(f"[{entity_id}] Does not support preset_mode {preset_mode}", level="ERROR")
             return
 

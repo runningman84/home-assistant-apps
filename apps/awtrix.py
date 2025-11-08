@@ -29,6 +29,12 @@ import inspect
 class AwtrixControl(BaseApp):
 
     def initialize(self):
+        """Set up AwtrixControl: read args, register listeners and start periodic timer.
+
+        Side effects:
+            - Registers state listeners for device trackers, motion sensors and alarm panel.
+            - Starts a periodic timer for periodic tasks.
+        """
         super().initialize()
 
         # awtrix devices
@@ -58,6 +64,11 @@ class AwtrixControl(BaseApp):
 
 
     def setup(self):
+        """Evaluate current conditions and decide whether to turn AWTRIX on/off.
+
+        This method is invoked on startup and from event callbacks. It checks
+        motion, alarm and night windows and triggers `turn_on`/`sleep` as needed.
+        """
         self.log(f"Last motion occurred {self.get_last_motion():.2f} seconds ago")
 
         if(self.count_on_motion_sensors() > 0):
@@ -73,20 +84,40 @@ class AwtrixControl(BaseApp):
             self.sleep(self.get_seconds_until_night_end())
             return
         if(self.count_on_motion_sensors() == 0):
-            self.log(f"Sleeping 60 seconds until next motion")
+            self.log("Sleeping 60 seconds until next motion")
             self.sleep(60)
             #self.turn_off()
             return
 
     def periodic_time_callback(self, kwargs):
+        """Periodic callback invoked by run_every; re-evaluates setup.
+
+        Args:
+            kwargs (dict): AppDaemon passes timer kwargs here (ignored).
+        """
         self.log(f"{inspect.currentframe().f_code.co_name}")
         self.setup()
 
     def sensor_change_callback(self, entity, attribute, old, new, kwargs):
+        """Generic sensor change handler that triggers a re-check.
+
+        Args:
+            entity (str): entity id that changed.
+            attribute (str): attribute that changed.
+            old (str): previous state value.
+            new (str): new state value.
+            kwargs (dict): additional AppDaemon kwargs.
+        """
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
         self.setup()
 
     def send_mqtt(self, prefix, payload):
+        """Publish a JSON payload to each configured AWTRIX MQTT prefix.
+
+        Args:
+            prefix (str): topic suffix to publish (e.g., 'power', 'sleep').
+            payload (dict): data to JSON-encode and publish.
+        """
         for device_prefix in self.__awtrix_prefixes:
             # Convert the dictionary to a JSON string
             payload_json = json.dumps(payload)
@@ -98,18 +129,25 @@ class AwtrixControl(BaseApp):
                                 payload=payload_json)
 
     def turn_on(self):
+        """Turn AWTRIX devices on via MQTT payload."""
         payload = {
             "power": True
         }
         self.send_mqtt('power', payload)
 
     def turn_off(self):
+        """Turn AWTRIX devices off via MQTT payload."""
         payload = {
             "power": False
         }
         self.send_mqtt('power', payload)
 
     def sleep(self, seconds = 60):
+        """Put AWTRIX devices to sleep for the specified number of seconds.
+
+        Args:
+            seconds (int): sleep duration in seconds.
+        """
         payload = {
             "sleep": seconds
         }

@@ -18,6 +18,11 @@ import appdaemon.plugins.hass.hassapi as hass
 class Cleanup(hass.Hass):
 
     def initialize(self):
+        """Initialize the cleanup app.
+
+        Reads configuration for limits and sets up a state listener on the
+        configured sensor that reports file/byte usage. No return value.
+        """
         self.log("Hello from Cleanaup")
 
         self._processing_handle = None
@@ -32,6 +37,14 @@ class Cleanup(hass.Hass):
         self._handle = self.listen_state(self.trigger_cleanup_callback, self._cleanup_sensor)
 
     def trigger_cleanup_callback(self, entity, attribute, old, new, kwargs):
+        """State change callback that triggers cleanup when thresholds exceeded.
+
+        Args:
+            entity (str): sensor entity that reported the change.
+            attribute (str): attribute name that changed.
+            old, new: previous and current state values (unused except logging).
+            kwargs (dict): additional callback context from AppDaemon.
+        """
         self.log(
             "Callback trigger_cleanup_callback from {}:{} {}->{}".format(entity, attribute, old, new))
 

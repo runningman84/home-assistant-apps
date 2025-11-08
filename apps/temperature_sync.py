@@ -23,9 +23,6 @@ See module docstring and inline examples for usage.
 """
 
 import appdaemon.plugins.hass.hassapi as hass
-import datetime
-import time
-import re
 import inspect
 
 
@@ -33,6 +30,11 @@ import inspect
 class TemperatureSync(hass.Hass):
 
     def initialize(self):
+        """Initialize TemperatureSync: register input listener and schedule periodic sync.
+
+        Reads configured input/output entities from args and ensures the sync
+        runs on changes and periodically.
+        """
         self.log("Hello from TemperatureSync")
 
         self._input = self.args.get("input")
@@ -44,16 +46,29 @@ class TemperatureSync(hass.Hass):
         self.run_every(self.periodic_time_callback, "now+10", 10 * 60)
 
     def periodic_time_callback(self, kwargs):
+        """Timer callback to periodically synchronize the temperature.
+
+        Args:
+            kwargs (dict): timer kwargs from AppDaemon (ignored).
+        """
         self.log(f"{inspect.currentframe().f_code.co_name}")
 
         self.sync_temperature()
 
     def sensor_change_callback(self, entity, attribute, old, new, kwargs):
+        """State change callback for the source temperature sensor.
+
+        Invokes `sync_temperature` to mirror the latest numeric value to outputs.
+        """
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         self.sync_temperature()
 
     def sync_temperature(self):
+        """Read the source temperature and set configured outputs to the numeric value.
+
+        Invalid or non-numeric input values are logged and ignored.
+        """
         temperature = self.get_state(self._input)
 
         try:
@@ -64,5 +79,5 @@ class TemperatureSync(hass.Hass):
             return
 
         for entity_id in self._outputs:
-            self.log(f"[{entity_id}] Setting number value to {temperature}")
-            self.call_service("number/set_value", entity_id=entity_id, value=temperature)
+            self.log(f"[{entity_id}] Setting number value to {numeric_value}")
+            self.call_service("number/set_value", entity_id=entity_id, value=numeric_value)

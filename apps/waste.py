@@ -22,10 +22,8 @@ See module docstring and inline examples for usage.
 """
 
 from base import BaseApp
-import json
 import inspect
-from datetime import datetime, timezone, timedelta
-import time
+from datetime import datetime, timedelta
 
 
 
@@ -51,27 +49,39 @@ class WasteReminder(BaseApp):
         self.log("Startup finished")
 
     def periodic_time_callback(self, kwargs):
+        """Periodic callback that delegates to setup() to evaluate calendar state."""
         self.log(f"{inspect.currentframe().f_code.co_name}")
         self.setup()
 
     def sensor_change_callback(self, entity, attribute, old, new, kwargs):
+        """State-change listener for the waste calendar sensor; calls setup()."""
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
         self.setup()
 
     def seconds_until_tomorrow(self):
+        """Return number of seconds remaining until the start of the next day."""
         now = datetime.now()
         tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         return int((tomorrow - now).total_seconds())
 
     def setup(self):
+        """Evaluate the configured waste calendar and notify AWTRIX/TTS when appropriate.
+
+        The method reads 'start_time' and 'message' attributes from the
+        calendar sensor and triggers AWTRIX notifications or TTS if the
+        collection is today or tomorrow. It also throttles TTS messages to
+        avoid repeated announcements and resets counters when nothing is
+        scheduled.
+        """
+
         if self._waste_calendar is None:
-            self.log(f"Doing nothing waste calendar is not defined.")
+            self.log("Doing nothing waste calendar is not defined.")
             return
 
-        waste_state = self.get_state(self._waste_calendar)
+        # waste_state = self.get_state(self._waste_calendar)
         waste_message = self.get_state(self._waste_calendar, attribute = "message")
         waste_start_time = self.get_state(self._waste_calendar, attribute = "start_time")
-        waste_end_time = self.get_state(self._waste_calendar, attribute = "end_time")
+        # waste_end_time = self.get_state(self._waste_calendar, attribute = "end_time")
 
         # Ensure waste_start_time is valid before parsing
         if waste_start_time:
@@ -82,20 +92,20 @@ class WasteReminder(BaseApp):
 
             # If waste collection is tomorrow, send a notification
             if collection_date == tomorrow:
-                self.notify_awtrix(f"Müllabfuhr morgen: {waste_message}", 'waste', 15, self.seconds_until_tomorrow())
+                self.notify_awtrix(f"M\u00fcllabfuhr morgen: {waste_message}", 'waste', 15, self.seconds_until_tomorrow())
 
                 if self.is_somebody_at_home() and self._tts_sent_tomorrow < 3 and self.is_time_in_night_window() is not True:
-                    self.notify_tts(f"Müllabfuhr morgen: {waste_message}")
+                    self.notify_tts(f"M\u00fcllabfuhr morgen: {waste_message}")
                     self._tts_sent_tomorrow = self._tts_sent_tomorrow + 1
 
                 return
 
             # If waste collection is today, send a notification
             if collection_date == today:
-                self.notify_awtrix(f"Müllabfuhr heute: {waste_message}", 'waste', 15, self.seconds_until_tomorrow())
+                self.notify_awtrix(f"M\u00fcllabfuhr heute: {waste_message}", 'waste', 15, self.seconds_until_tomorrow())
 
                 if self.is_somebody_at_home() and self._tts_sent_today < 1 and self.is_time_in_night_window() is not True:
-                    self.notify_tts(f"Müllabfuhr heute: {waste_message}")
+                    self.notify_tts(f"M\u00fcllabfuhr heute: {waste_message}")
                     self._tts_sent_today = self._tts_sent_today + 1
 
                 return

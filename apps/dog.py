@@ -16,8 +16,18 @@ import appdaemon.plugins.hass.hassapi as hass
 
 
 class GuardDog(hass.Hass):
+    """GuardDog app class.
+
+    Monitors a motion sensor and a door sensor and triggers a ringtone via
+    the Xiaomi/Aqara service when motion is detected while the alarm is
+    armed and the door sensor is in the expected state.
+    """
 
     def initialize(self):
+        """Read arguments and start listening to the configured motion sensor.
+
+        Expected args: motion_sensor, door_sensor, gw_mac
+        """
         self.log("Hello from GuardDog")
 
         self._motion_sensor = self.args["motion_sensor"]
@@ -29,6 +39,12 @@ class GuardDog(hass.Hass):
         self.handle = self.listen_state(self.my_callback, self._motion_sensor)
 
     def my_callback(self, entity, attribute, old, new, kwargs):
+        """Callback invoked on motion sensor state changes.
+
+        Parameters follow AppDaemon's listen_state signature. If the system
+        alarm is armed and the door sensor indicates the door is 'off', a
+        ringtone is played via the configured gateway MAC.
+        """
         self.log("Callback from GuardDog")
 
         if self.get_state("alarm_control_panel.ha_alarm") == 'armed_home' or self.get_state("alarm_control_panel.ha_alarm") == 'armed_away':
