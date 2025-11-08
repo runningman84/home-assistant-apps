@@ -18,3 +18,9 @@ camera_scanner:
 Notes
 -----
 - See `apps/camera.py` for processing cadence and tuning parameters.
+
+Options
+-------
+ - `image_processor` (entity) — default: None
+ - `sensors` (list) — default: []
+ - `processing_max_count` / cadence parameters are defined in `apps/camera.py` source.

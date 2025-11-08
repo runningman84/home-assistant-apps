@@ -4,6 +4,15 @@ Short descriptions of the AppDaemon apps included in this repository.
 
  - `base.py` — BaseApp: common helper functions used by many apps (logging, counting sensors, notification helpers, time/workday utilities, state-change recording, and other shared utilities).
 
+See the detailed per-app quick reference pages in `docs/` (examples and options):
+
+- [`docs/alarm.md`](docs/alarm.md) — AlarmControl
+- [`docs/climate.md`](docs/climate.md) — ClimateControl
+- [`docs/light.md`](docs/light.md) — LightControl
+- [`docs/power.md`](docs/power.md) — PowerControl
+- [`docs/camera.md`](docs/camera.md) — CameraImageScanner
+- [`docs/telegram.md`](docs/telegram.md) — TelegramBotEventListener
+
  - `hello.py` — HelloWorld: trivial example app that logs on initialization. Useful as a minimal template.
 
  - `light.py` — LightControl: automatic light control based on motion, illumination, sun elevation, presence, vacation/guest modes and alarm state. Supports scenes, delayed reactions and internal/external change suppression.

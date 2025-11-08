@@ -26,3 +26,27 @@ Notes
 -----
 - See `apps/alarm.py` for the full list of options and defaults.
 - Use `APPS.md` or `README.md` for pointers to other helpers (Telegram, Awtrix).
+
+Options
+-------
+Common (from `base.py`):
+
+ - `opening_sensors` (list) — default: []
+ - `motion_sensors` (list) — default: []
+ - `device_trackers` (list) — default: []
+ - `vacation_control` (entity) — default: None
+ - `guest_control` (entity) — default: None
+ - `notify_service` (service/entity) — default: None
+
+Alarm-specific:
+
+ - `armed_home_binary_sensors` (list) — default: []
+ - `armed_away_binary_sensors` (list) — default: []
+ - `armed_home_image_processing_sensors` (list) — default: []
+ - `armed_away_image_processing_sensors` (list) — default: []
+ - `water_binary_sensors` (list) — default: []
+ - `fire_binary_sensors` (list) — default: []
+ - `alarm_control_buttons` (list) — default: []
+ - `alarm_lights` (list) — default: []
+ - `camera_snapshot_path` (str) — default: `/tmp`
+ - `camera_snapshot_regex` (str) — default: `camera_.*\d+_\d+\.jpg`

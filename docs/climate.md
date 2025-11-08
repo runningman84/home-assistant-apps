@@ -22,3 +22,21 @@ climate_control:
 Notes
 -----
 - See `apps/climate.py` for advanced options like AQI thresholds, offsets and motion-based temperature control.
+
+Options
+-------
+Common (from `base.py`):
+
+ - `device_trackers` (list) — default: []
+ - `vacation_control` (entity) — default: None
+ - `guest_control` (entity) — default: None
+
+Climate-specific:
+
+ - `climate_controls` (list) — default: []
+ - `external_temperature_sensor` (entity) — default: None
+ - `aqi_sensor`, `voc_sensor`, `co2_sensor` (entities) — defaults: None
+ - `home_temperature` (float) — default: 20
+ - `away_temperature` (float) — default: 18
+ - `vacation_temperature` (float) — default: 16
+ - `motion_temperature` (float) — default: 21

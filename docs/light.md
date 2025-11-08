@@ -24,3 +24,19 @@ light_control:
 Notes
 -----
 - See `apps/light.py` for advanced options such as fluxer support and multiple illumination sensors.
+
+Options
+-------
+Common (from `base.py`):
+
+ - `motion_sensors` (list) — default: []
+ - `device_trackers` (list) — default: []
+ - `vacation_control`, `guest_control` (entities) — defaults: None
+
+Light-specific:
+
+ - `lights` (list) — default: []
+ - `night_scene`, `on_scene`, `off_scene` (entity/scene) — defaults: None
+ - `min_illumination` (int) — default: 25
+ - `min_elevation` (int) — default: 10
+ - `motion_duration` (int seconds) — default: 180
