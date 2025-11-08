@@ -17,13 +17,19 @@ See module docstrings and inline examples for canonical usage and common options
 import appdaemon.plugins.hass.hassapi as hass
 from datetime import datetime, timezone, timedelta, date
 import json
-import hashlib
 import inspect
 
 
 
 class BaseApp(hass.Hass):
     def initialize(self):
+        """Initialize BaseApp defaults and log configuration.
+
+        This method is called by AppDaemon on startup. It reads common
+        configuration options from `self.args`, sets sensible defaults on
+        instance attributes, and writes a short configuration summary to the
+        AppDaemon log.
+        """
         self.log(f"Initializing {self.__class__.__name__}")
 
         # setup sane defaults
@@ -104,7 +110,6 @@ class BaseApp(hass.Hass):
 
     def log(self, message, level="INFO", *args, **kwargs):
         """Custom log function to ensure UTF-8 output and handle args/kwargs properly."""
-
         # Format the message if args are passed
         if args or kwargs:
             message = message % (*args, *kwargs.values())
@@ -113,17 +118,34 @@ class BaseApp(hass.Hass):
         super().log(str(message), level=level, ascii_encode=False)
 
     def get_utc_time(self):
-        """Returns the current UTC time"""
+        """Return the current UTC datetime.
+
+        Returns:
+            datetime: timezone-aware UTC datetime.
+        """
         return datetime.now(timezone.utc)
 
     def log_event(self, message):
-        """Logs a message with the app name"""
+        """
+        Log a message prefixed with the app class name.
+
+        Args:
+            message (str): message to log.
+        """
         self.log(f"[{self.__class__.__name__}] {message}")
 
     def is_workday_today(self):
+        """Return True if today is considered a workday.
+
+        If a workday sensor is configured it will be used; otherwise the
+        weekday (Mon-Fri) is used as a fallback. Holidays override workday.
+
+        Returns:
+            bool: True when today is a workday.
+        """
         if self.is_holiday_today():
             return False
-        if self._workday_sensor == None:
+        if self._workday_sensor is None:
             self.log("using workday fallback for today", level = "DEBUG")
             today = date.today()
             return today.weekday() < 5  # Monday-Friday are workdays
@@ -131,7 +153,15 @@ class BaseApp(hass.Hass):
         return self.get_state(self._workday_sensor) == 'on'
 
     def is_workday_tomorrow(self):
-        if self._workday_tomorrow_sensor == None:
+        """Return True if tomorrow is considered a workday.
+
+        Uses a configured sensor when present; otherwise uses the weekday
+        fallback (Mon-Fri).
+
+        Returns:
+            bool: True when tomorrow is a workday.
+        """
+        if self._workday_tomorrow_sensor is None:
             self.log("using workday fallback for tomorrow", level = "DEBUG")
             tomorrow = date.today() + timedelta(days=1)
             return tomorrow.weekday() < 5  # Returns True for Monday-Friday
@@ -139,14 +169,26 @@ class BaseApp(hass.Hass):
         return self.get_state(self._workday_tomorrow_sensor) == 'on'
 
     def is_holiday_today(self):
-        if self._holiday_sensor == None:
+        """Return True if today is a holiday according to the configured sensor.
+
+        Returns:
+            bool: True when the holiday sensor (if configured) is 'on'.
+        """
+        if self._holiday_sensor is None:
             return False
         return self.get_state(self._holiday_sensor) == 'on'
 
     def get_night_times(self):
+        """Return the configured night start/end times considering workdays.
+
+        Chooses workday-specific night windows when appropriate.
+
+        Returns:
+            tuple(str, str): night_start, night_end in 'HH:MM:SS' format.
+        """
         today_workday = self.is_workday_today()
         tomorrow_workday = self.is_workday_tomorrow()
-        
+
         self.log(f"today_workday {today_workday} tomorrow_workday {tomorrow_workday}", level = "DEBUG")
 
         night_start = self._night_start_workday if tomorrow_workday else self._night_start
@@ -154,11 +196,20 @@ class BaseApp(hass.Hass):
         return night_start, night_end
 
     def is_time_in_night_window(self):
+        """Return True if the current time is within the configured night window.
+
+        Uses `get_night_times` to consider workday-specific windows.
+        """
         night_start, night_end = self.get_night_times()
         self.log(f"night start {night_start} night end {night_end}", level = "DEBUG")
         return self.now_is_between(night_start, night_end)
 
     def in_silent_mode(self):
+        """Return True if the configured silent control entity is enabled.
+
+        Returns:
+            bool: silent state.
+        """
         if self._silent_control is None:
             return False
         if self.get_state(self._silent_control) == 'on':
@@ -167,6 +218,13 @@ class BaseApp(hass.Hass):
             return False
 
     def get_seconds_until_night_end(self):
+        """Return seconds remaining until the configured night end time.
+
+        Accounts for night windows that roll over to the next day.
+
+        Returns:
+            int: number of seconds until night end; 0 if night already ended.
+        """
         now = datetime.now()
         night_start, night_end = self.get_night_times()
         night_end_time = datetime.strptime(night_end, "%H:%M:%S").time()
@@ -185,6 +243,17 @@ class BaseApp(hass.Hass):
         return seconds_left
 
     def count_opening_sensors(self, state = None):
+        """Count opening sensors, optionally filtered by state.
+
+        If a state is provided, sensors that have that state OR that were updated
+        recently (within opening_timeout) are counted.
+
+        Args:
+            state (str|None): optional state to filter by (e.g., 'on' or 'off').
+
+        Returns:
+            int: number of sensors matching criteria.
+        """
         if state is None:
             return len(self._opening_sensors)
 
@@ -197,12 +266,35 @@ class BaseApp(hass.Hass):
         return count
 
     def count_on_opening_sensors(self):
+        """
+        Count opening sensors currently in the 'on' state.
+
+        Returns:
+            int: number of opening sensors in state 'on'.
+        """
         return self.count_opening_sensors("on")
 
     def count_off_opening_sensors(self):
+        """
+        Count opening sensors currently in the 'off' state.
+
+        Returns:
+            int: number of opening sensors in state 'off'.
+        """
         return self.count_opening_sensors("off")
 
     def count_motion_sensors(self, state = None):
+        """Count motion sensors, optionally filtered by state.
+
+        If a state is provided, sensors that have that state OR that were updated
+        recently (within motion_timeout) are counted.
+
+        Args:
+            state (str|None): optional state to filter by.
+
+        Returns:
+            int: matching sensor count.
+        """
         if state is None:
             return len(self._motion_sensors)
 
@@ -215,11 +307,20 @@ class BaseApp(hass.Hass):
         return count
 
     def get_last_motion(self):
+        """Return seconds since the most recent motion event among configured sensors.
+
+        Returns 0 immediately if any motion sensor is currently 'on'. Otherwise
+        returns the smallest seconds-since-update value found or None if none
+        are available.
+
+        Returns:
+            float|None: seconds since last motion or None.
+        """
         last_motion = None
         for sensor in self._motion_sensors:
             if self.get_state(sensor) == "on":
                 return 0
-            if last_motion == None:
+            if last_motion is None:
                 # FIXME
                 last_motion = self.get_seconds_since_update(sensor)
             elif self.get_seconds_since_update(sensor) is not None and self.get_seconds_since_update(sensor) < last_motion:
@@ -227,12 +328,32 @@ class BaseApp(hass.Hass):
         return last_motion
 
     def count_on_motion_sensors(self):
+        """
+        Count motion sensors currently in the 'on' state.
+
+        Returns:
+            int: number of motion sensors in state 'on'.
+        """
         return self.count_motion_sensors("on")
 
     def count_off_motion_sensors(self):
+        """
+        Count motion sensors currently in the 'off' state.
+
+        Returns:
+            int: number of motion sensors in state 'off'.
+        """
         return self.count_motion_sensors("off")
 
     def get_seconds_since_update(self, entity):
+        """Return seconds elapsed since the entity's last_updated attribute.
+
+        Args:
+            entity (str): entity_id to query.
+
+        Returns:
+            float|None: seconds since last update or None if unavailable.
+        """
         last_updated_str = self.get_state(entity, attribute="last_updated")
 
         if last_updated_str:
@@ -252,38 +373,61 @@ class BaseApp(hass.Hass):
             return None
 
     def record_internal_change(self):
-        self.log("Recording interal change")
+        """Record that this app made an internal change.
+
+        Stores a timestamp and increments an internal counter used to
+        distinguish internal vs external changes to entities.
+        """
+        self.log("Recording internal change")
         self._internal_change_timestamp = datetime.now(timezone.utc)
         self._internal_change_count = self._internal_change_count + 1
 
     def record_external_change(self):
+        """Record that an external change was observed.
+
+        Stores a timestamp and increments an external change counter.
+        """
         self.log("Recording external change")
         self._external_change_timestamp = datetime.now(timezone.utc)
         self._external_change_count = self._external_change_count + 1
 
     def reset_internal_change_records(self):
-        self.log("Reseting interal change records")
+        """Reset internal change records to default state."""
+        self.log("Resetting internal change records")
         self._internal_change_timestamp = None
         self._internal_change_count = 0
 
     def reset_external_change_records(self):
-        self.log("Reseting external change records")
+        """Reset external change records to default state."""
+        self.log("Resetting external change records")
         self._external_change_timestamp = None
         self._external_change_count = 0
 
     def get_last_internal_change(self):
+        """Return the last recorded internal change timestamp (or None)."""
         return self._internal_change_timestamp
 
     def get_last_external_change(self):
+        """Return the last recorded external change timestamp (or None)."""
         return self._external_change_timestamp
 
     def get_external_change_timeout(self):
+        """Return the configured external change timeout in seconds."""
         return self._external_change_timeout
 
     def get_internal_change_timeout(self):
+        """Return the configured internal change timeout in seconds."""
         return self._internal_change_timeout
 
     def is_current_change_external(self):
+        """Return True when the current change should be considered external.
+
+        Compares the time since the last internal change against the
+        configured internal timeout to determine if a change is external.
+
+        Returns:
+            bool: True when the current change is external.
+        """
         last_internal_change = self.get_last_internal_change()
 
         if last_internal_change is None:
@@ -312,14 +456,25 @@ class BaseApp(hass.Hass):
         return True
 
     def is_last_change_external(self):
-        if (self.get_last_external_change() == None):
+        """Return True when the last recorded change was external.
+
+        Compares timestamps of last external and last internal changes.
+        """
+        if self.get_last_external_change() is None:
             return False
-        if (self.get_last_internal_change() == None):
+        if self.get_last_internal_change() is None:
             return True
         if (self.get_last_external_change() > self.get_last_internal_change()):
             return True
 
     def is_internal_change_allowed(self):
+        """Return True when an internal change (made by the app) is allowed.
+
+        Rules:
+        - If no external change was recorded, internal changes are allowed.
+        - If nobody is at home and no motion is detected, internal changes are allowed.
+        - Otherwise, wait for the external timeout window to expire.
+        """
         if not self.is_last_change_external():
             self.log("No external change detected. Internal change is allowed.", level = "DEBUG")
             return True
@@ -339,6 +494,11 @@ class BaseApp(hass.Hass):
         return True
 
     def get_remaining_seconds_before_internal_change_is_allowed(self):
+        """Return the remaining seconds until internal changes are allowed.
+
+        If there is no recent external change this returns 0. Otherwise it
+        computes timeout - elapsed_seconds and returns a non-negative value.
+        """
         if not self.is_last_change_external():
             self.log("No external change detected. Remaining time: 0 seconds", level="DEBUG")
             return 0
@@ -369,6 +529,15 @@ class BaseApp(hass.Hass):
 
 
     def count_media_players(self, state=None, sources=None):
+        """Count media players optionally filtered by state and allowed sources.
+
+        Args:
+            state (str|None): state to filter by (e.g., 'playing', 'on').
+            sources (list|None): optional list of source names to filter by.
+
+        Returns:
+            int: number of matching media players.
+        """
         self.log(f"Count media players in state {state} and sources {sources}", level="DEBUG")
         if state is None:
             return len(self._media_players)
@@ -390,15 +559,42 @@ class BaseApp(hass.Hass):
         return count
 
     def count_playing_media_players(self):
+        """
+        Count media players currently in the "playing" state.
+
+        Returns:
+            int: number of media players in state 'playing'.
+        """
         return self.count_media_players("playing")
 
     def count_on_media_players(self):
+        """
+        Count media players currently turned on.
+
+        Returns:
+            int: number of media players in state 'on'.
+        """
         return self.count_media_players("on")
 
     def count_off_media_players(self):
+        """
+        Count media players currently turned off.
+
+        Returns:
+            int: number of media players in state 'off'.
+        """
         return self.count_media_players("off")
 
     def count_vacuum_cleaners(self, state=None):
+        """
+        Count vacuum cleaners, optionally filtered by state.
+
+        Args:
+            state (str|None): optional state to filter by (e.g., 'cleaning', 'docked').
+
+        Returns:
+            int: number of vacuum cleaners matching the state or total when state is None.
+        """
         self.log(f"Count vacuum cleaners in state {state}", level="DEBUG")
         if state is None:
             return len(self._vacuum_cleaners)
@@ -413,15 +609,42 @@ class BaseApp(hass.Hass):
         return count
 
     def count_cleaning_vacuum_cleaners(self):
+        """
+        Count vacuum cleaners currently cleaning.
+
+        Returns:
+            int: number of vacuum cleaners in state 'cleaning'.
+        """
         return self.count_vacuum_cleaners("cleaning")
 
     def count_docked_vacuum_cleaners(self):
+        """
+        Count vacuum cleaners currently docked.
+
+        Returns:
+            int: number of vacuum cleaners in state 'docked'.
+        """
         return self.count_vacuum_cleaners("docked")
 
     def count_returning_vacuum_cleaners(self):
+        """
+        Count vacuum cleaners that are currently returning to dock.
+
+        Returns:
+            int: number of vacuum cleaners in state 'returning'.
+        """
         return self.count_vacuum_cleaners("returning")
 
     def count_lights(self, state = None):
+        """
+        Count configured lights, optionally filtered by state.
+
+        Args:
+            state (str|None): optional state to filter by (e.g., 'on' or 'off').
+
+        Returns:
+            int: number of lights matching the state or total when state is None.
+        """
         self.log(f"count lights in state {state}", level = "DEBUG")
         if state is None:
             return len(self._lights)
@@ -436,12 +659,33 @@ class BaseApp(hass.Hass):
         return count
 
     def count_on_lights(self):
+        """
+        Count lights that are currently on.
+
+        Returns:
+            int: number of lights in state 'on'.
+        """
         return self.count_lights("on")
 
     def count_off_lights(self):
+        """
+        Count lights that are currently off.
+
+        Returns:
+            int: number of lights in state 'off'.
+        """
         return self.count_lights("off")
 
     def count_device_trackers(self, state = None):
+        """
+        Count device trackers, optionally filtered by state.
+
+        Args:
+            state (str|None): optional state to filter by (e.g., 'home' or 'not_home').
+
+        Returns:
+            int: number of device trackers matching the state or total when state is None.
+        """
         self.log(f"count device trackers in state {state}", level = "DEBUG")
         if state is None:
             return len(self._device_trackers)
@@ -456,12 +700,33 @@ class BaseApp(hass.Hass):
         return count
 
     def count_home_device_trackers(self):
+        """
+        Count device trackers reporting 'home'.
+
+        Returns:
+            int: number of device trackers in state 'home'.
+        """
         return self.count_device_trackers("home")
 
     def count_not_home_device_trackers(self):
+        """
+        Count device trackers reporting 'not_home'.
+
+        Returns:
+            int: number of device trackers in state 'not_home'.
+        """
         return self.count_device_trackers("not_home")
 
     def count_awake_sensors(self, state = None):
+        """
+        Count 'awake' sensors, optionally filtered by state.
+
+        Args:
+            state (str|None): optional state to filter by (e.g., 'on' or 'off').
+
+        Returns:
+            int: number of awake sensors matching the state or total when state is None.
+        """
         self.log(f"count awake sensors in state {state}", level = "DEBUG")
         if state is None:
             return len(self._awake_sensors)
@@ -476,27 +741,62 @@ class BaseApp(hass.Hass):
         return count
 
     def count_on_awake_sensors(self):
+        """
+        Count 'awake' sensors that are on.
+
+        Returns:
+            int: number of awake sensors in state 'on'.
+        """
         return self.count_awake_sensors("on")
 
     def count_off_awake_sensors(self):
+        """
+        Count 'awake' sensors that are off.
+
+        Returns:
+            int: number of awake sensors in state 'off'.
+        """
         return self.count_awake_sensors("off")
 
     def is_somebody_awake(self):
+        """
+        Determine whether at least one 'awake' sensor is active.
+
+        Returns:
+            bool: True if any awake sensor is 'on', otherwise False.
+        """
         if self.count_on_awake_sensors() > 0:
             return True
         return False
 
     def is_nobody_awake(self):
+        """
+        Determine whether no 'awake' sensors are active.
+
+        Returns:
+            bool: True if no awake sensor is 'on', otherwise False.
+        """
         if self.count_on_awake_sensors() == 0:
             return True
         return False
 
     def is_somebody_at_home(self):
+        """
+        Determine whether someone is considered at home.
+
+        Logic:
+          - If any device_tracker reports 'home' -> True
+          - If guest mode is active -> True
+          - If vacation mode is active -> False (explicit override)
+
+        Returns:
+            bool: True if someone is at home, False otherwise.
+        """
         if self.count_home_device_trackers() > 0:
             self.log("found device trackers", level = "DEBUG")
             return True
         if self.in_guest_mode():
-            self.log("found geust mode", level = "DEBUG")
+            self.log("found guest mode", level = "DEBUG")
             return True
         if self.in_vacation_mode():
             self.log("found vacation mode", level = "DEBUG")
@@ -504,9 +804,21 @@ class BaseApp(hass.Hass):
         return False
 
     def is_nobody_at_home(self):
+        """
+        Convenience negation of `is_somebody_at_home`.
+
+        Returns:
+            bool: True if nobody is considered at home, False otherwise.
+        """
         return not self.is_somebody_at_home()
 
     def in_guest_mode(self):
+        """
+        Check whether the system is in guest mode.
+
+        Returns:
+            bool: True if guest control entity is set and 'on', otherwise False.
+        """
         if self._guest_control is None:
             return False
         if self.get_state(self._guest_control) == 'on':
@@ -515,6 +827,12 @@ class BaseApp(hass.Hass):
             return False
 
     def in_vacation_mode(self):
+        """
+        Check whether the system is in vacation mode.
+
+        Returns:
+            bool: True if vacation control entity is set and 'on', otherwise False.
+        """
         if self._vacation_control is None:
             return False
         if self.get_state(self._vacation_control) == 'on':
@@ -523,33 +841,99 @@ class BaseApp(hass.Hass):
             return False
 
     def is_alarm_armed_away(self):
+        """
+        Convenience check for alarm 'armed_away' state.
+
+        Returns:
+            bool: True if the alarm is 'armed_away'.
+        """
         return self.is_alarm_in_state('armed_away')
 
     def is_alarm_armed_home(self):
+        """
+        Convenience check for alarm 'armed_home' state.
+
+        Returns:
+            bool: True if the alarm is 'armed_home'.
+        """
         return self.is_alarm_in_state('armed_home')
 
     def is_alarm_armed_night(self):
+        """
+        Convenience check for alarm 'armed_night' state.
+
+        Returns:
+            bool: True if the alarm is 'armed_night'.
+        """
         return self.is_alarm_in_state('armed_night')
 
     def is_alarm_armed_vacation(self):
+        """
+        Convenience check for alarm 'armed_vacation' state.
+
+        Returns:
+            bool: True if the alarm is 'armed_vacation'.
+        """
         return self.is_alarm_in_state('armed_vacation')
 
     def is_alarm_armed(self):
-        return self.get_state(self._alarm_control_panel) in ['armed_away', 'armed_away', 'armed_night', 'armed_vacation']
+        """
+        Check whether the alarm is in any armed state.
+
+        Note: this method considers common armed states. If no alarm control
+        entity is configured this will raise (expected upstream to handle).
+
+        Returns:
+            bool: True if the alarm is in an armed state, otherwise False.
+        """
+        return self.get_state(self._alarm_control_panel) in ['armed_away', 'armed_home', 'armed_night', 'armed_vacation']
 
     def is_alarm_disarmed(self):
+        """
+        Convenience check for alarm 'disarmed' state.
+
+        Returns:
+            bool: True if the alarm is 'disarmed'.
+        """
         return self.is_alarm_in_state('disarmed')
 
     def is_alarm_arming(self):
+        """
+        Convenience check for alarm 'arming' state.
+
+        Returns:
+            bool: True if the alarm is 'arming'.
+        """
         return self.is_alarm_in_state('arming')
 
     def is_alarm_pending(self):
+        """
+        Convenience check for alarm 'pending' state.
+
+        Returns:
+            bool: True if the alarm is 'pending'.
+        """
         return self.is_alarm_in_state('pending')
 
     def is_alarm_triggered(self):
+        """
+        Convenience check for alarm 'triggered' state.
+
+        Returns:
+            bool: True if the alarm is 'triggered'.
+        """
         return self.is_alarm_in_state('triggered')
 
     def is_alarm_in_state(self, state):
+        """
+        Generic check for whether the alarm control panel is in a given state.
+
+        Args:
+            state (str): alarm state to check (e.g. 'armed_home', 'disarmed').
+
+        Returns:
+            bool: True if alarm control panel exists and matches the state.
+        """
         if self._alarm_control_panel is None:
             return False
         if self.get_state(self._alarm_control_panel) == state:
@@ -557,11 +941,30 @@ class BaseApp(hass.Hass):
         return False
 
     def get_alarm_state(self):
+        """
+        Return the current state of the configured alarm control panel.
+
+        Returns:
+            str|None: current alarm state or None if no alarm panel configured.
+        """
         if self._alarm_control_panel is None:
             return None
         return self.get_state(self._alarm_control_panel)
 
     def below_min_elevation(self, value = None):
+        """
+        Check whether a numeric elevation is below the configured minimum.
+
+        If `value` is provided (int/float) it will be compared directly. If
+        not provided the current sun elevation (entity 'sun.sun' attribute
+        'elevation') is queried and compared.
+
+        Args:
+            value (int|float|None): optional elevation value to compare.
+
+        Returns:
+            bool: True if the elevation is below the configured minimum.
+        """
         if isinstance(value, int) or isinstance(value, float):
             if value < self._min_elevation:
                 return True
@@ -572,13 +975,26 @@ class BaseApp(hass.Hass):
         return False
 
     def below_min_illumination(self, value = None):
+        """
+        Determine whether illumination is below the configured threshold.
+
+        If `value` is provided (int/float) it is compared directly. If not,
+        the configured illumination sensors are queried; missing/unknown/
+        unavailable readings are considered below threshold.
+
+        Args:
+            value (int|float|None): optional illumination value to compare.
+
+        Returns:
+            bool: True if illumination is below the configured minimum.
+        """
         if isinstance(value, int) or isinstance(value, float):
             if value < self._min_illumination:
                 return True
             return False
 
         for sensor in self._illumination_sensors:
-            if self.get_state(sensor) == None:
+            if self.get_state(sensor) is None:
                 return True
             if self.get_state(sensor) == 'unknown':
                 return True
@@ -589,13 +1005,26 @@ class BaseApp(hass.Hass):
         return False
 
     def above_max_illumination(self, value = None):
+        """
+        Determine whether illumination is above the configured maximum.
+
+        If `value` is provided (int/float) it is compared directly. If not,
+        the configured illumination sensors are queried; missing/unknown/
+        unavailable readings are treated as non-above-threshold.
+
+        Args:
+            value (int|float|None): optional illumination value to compare.
+
+        Returns:
+            bool: True if illumination is above the configured maximum.
+        """
         if isinstance(value, int) or isinstance(value, float):
             if value < self._min_illumination:
                 return True
             return False
 
         for sensor in self._illumination_sensors:
-            if self.get_state(sensor) == None:
+            if self.get_state(sensor) is None:
                 return False
             if self.get_state(sensor) == 'unknown':
                 return False
@@ -606,6 +1035,21 @@ class BaseApp(hass.Hass):
         return False
 
     def control_change_callback(self, entity, attribute, old, new, kwargs):
+        """
+        Generic callback for control state changes.
+
+        This method logs the change and ignores transitions from or to
+        None/unknown/unavailable. If the change appears to originate from
+        an external caller the external change is recorded to avoid
+        reacting to our own control actions.
+
+        Args:
+            entity (str): entity id that changed.
+            attribute (str): attribute name that changed.
+            old (str|None): previous state value.
+            new (str|None): new state value.
+            kwargs (dict): additional keyword args passed by AppDaemon.
+        """
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         if old in (None, 'unknown', 'unavailable'):
@@ -620,6 +1064,19 @@ class BaseApp(hass.Hass):
             self.record_external_change()
 
     def notify(self, message, title=None, prio=0):
+        """
+        Top-level notification helper that dispatches messages to configured targets.
+
+        Behavior:
+        - Respects night/silent windows for media output.
+        - Sends messages to media (TTS/Alexa), Telegram and mobile notify targets.
+        - Creates a persistent notification and uses highest-priority channels when prio == 0.
+
+        Args:
+            message (str): message text to send.
+            title (str|None): optional title/prefix. Defaults to class name where used.
+            prio (int): priority level (0 = urgent, 1 = normal, 2 = debug).
+        """
         # prio
         # 0 = urgent
         # 1 = other
@@ -636,6 +1093,13 @@ class BaseApp(hass.Hass):
             self.notify_persistent(message, title)
 
     def notify_telegram(self, message, title=None):
+        """
+        Send a short message to configured Telegram users.
+
+        Args:
+            message (str): message text to send.
+            title (str|None): optional title/prefix. Defaults to class name.
+        """
         if title is None:
             title = self.__class__.__name__
 
@@ -651,6 +1115,13 @@ class BaseApp(hass.Hass):
             )
 
     def notify_notify(self, message, title=None):
+        """
+        Send a mobile notification to configured notify targets.
+
+        Args:
+            message (str): message text to send.
+            title (str|None): optional title/prefix. Defaults to class name.
+        """
         if title is None:
             title = self.__class__.__name__
 
@@ -665,6 +1136,13 @@ class BaseApp(hass.Hass):
             )
 
     def notify_persistent(self, message, title=None):
+        """
+        Create a persistent notification in Home Assistant.
+
+        Args:
+            message (str): notification body.
+            title (str|None): optional title. Defaults to class name.
+        """
         if title is None:
             title = self.__class__.__name__
 
@@ -677,6 +1155,15 @@ class BaseApp(hass.Hass):
         )
 
     def notify_awtrix(self, message, app = None, duration = 60, lifetime = 600):
+        """
+        Send a notification to AWTRIX via MQTT custom topics.
+
+        Args:
+            message (str): text to display on AWTRIX.
+            app (str|None): name of the app/topic suffix. Defaults to class name.
+            duration (int): display duration in seconds.
+            lifetime (int): message lifetime in seconds on AWTRIX side.
+        """
         if app is None:
             app = self.__class__.__name__
 
@@ -700,6 +1187,12 @@ class BaseApp(hass.Hass):
                                 payload=notification_json)
 
     def reset_awtrix(self, app = None):
+        """
+        Send an empty/reset payload to AWTRIX for the given app/topic.
+
+        Args:
+            app (str|None): name of the app/topic suffix. Defaults to class name.
+        """
         if app is None:
             app = self.__class__.__name__
 
@@ -720,6 +1213,20 @@ class BaseApp(hass.Hass):
                                 payload=notification_json)
 
     def notify_media(self, *args, **kwargs):
+        """
+        Dispatch a media-style notification to configured media targets.
+
+        This method supports being invoked as a scheduled callback where the
+        first positional argument may be a dict of parameters; in that case the
+        dict is merged with keyword args. The message is sent to Alexa
+        (announce), any configured 'alexa_monkey' REST endpoints and TTS
+        media players (via the TTS integration). Silent mode suppresses
+        media output.
+
+        Args:
+            *args: optional positional args (first item may be a dict of params).
+            **kwargs: message/title/prio and other optional parameters.
+        """
         # If a scheduled callback passed a dictionary as a positional argument,
         # merge it with any keyword arguments provided.
         if args and isinstance(args[0], dict):
@@ -743,10 +1250,23 @@ class BaseApp(hass.Hass):
         self.notify_tts(message, title)
 
     def notify_tts(self, message, title=None, volume_level=0.35):
+        """
+        Speak a message using configured TTS devices.
+
+        This will set the volume on each configured TTS media player and then
+        call the TTS service to speak the provided message. Language selection
+        is controlled by `self._language` and defaults to 'en-US'.
+
+        Args:
+            message (str): message to speak.
+            title (str|None): optional title (unused for TTS).
+            volume_level (float): volume level to set before speaking.
+        """
         if len(self._tts_devices) > 0:
             language = 'en-US'
             if self._language == 'german':
                 language = 'de-DE'
+            self.log(f"Setting TTS language to {language}", level="DEBUG")
             for media_player in self._tts_devices:
                 self.log(f"Calling service media_player/volume_set with media_player {media_player} and voulme: {volume_level}")
                 self.call_service("media_player/volume_set", entity_id=media_player, volume_level=volume_level)
@@ -760,6 +1280,13 @@ class BaseApp(hass.Hass):
                 )
 
     def notify_alexa_media(self, message, title=None):
+        """
+        Send an Alexa 'announce' via the Alexa Media integration.
+
+        Args:
+            message (str): message text to announce.
+            title (str|None): optional title (not normally used by Alexa announce).
+        """
         if title is None:
             title = self.__class__.__name__
 
@@ -770,15 +1297,37 @@ class BaseApp(hass.Hass):
                 "notify/alexa_media", message=message, title=title, data=data, target=self._alexa_media_devices)
 
     def notify_alexa_monkey(self, message, title=None):
+        """
+        Trigger a custom 'monkey' announcement via a REST command.
+
+        Some setups use a small custom REST endpoint (rest_command) to trigger
+        alternative Alexa behaviour; this helper calls that rest_command for
+        each configured monkey target.
+
+        Args:
+            message (str): announcement text.
+            title (str|None): optional title (unused by monkey command).
+        """
         if title is None:
             title = self.__class__.__name__
 
         if len(self._alexa_monkeys) > 0:
             for monkey in self._alexa_monkeys:
-                data = {"announcement":message,"monkey":monkey}
                 self.log(f"Calling service rest_command/trigger_monkey with monkey {monkey} and message: {message}")
                 self.call_service(
                     "rest_command/trigger_monkey", announcement=message, monkey=monkey)
 
     def translate(self, message):
+        """
+        Translate a message key using the configured translation mapping.
+
+        This looks up the given key in the `self._translation` mapping for the
+        currently configured language and returns a placeholder if not found.
+
+        Args:
+            message (str): message key to translate.
+
+        Returns:
+            str: translated string or a 'Missing translation' placeholder.
+        """
         return self._translation.get(self._language, {}).get(message, f"Missing translation: {message}")

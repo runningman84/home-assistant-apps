@@ -23,10 +23,8 @@ See module docstring and inline examples for usage.
 """
 
 from base import BaseApp
-import json
 import inspect
 from datetime import datetime, timezone, timedelta
-import time
 
 
 
@@ -58,19 +56,26 @@ class WeatherWarning(BaseApp):
         self.log("Startup finished")
 
     def periodic_time_callback(self, kwargs):
+        """Periodic timer handler; re-evaluates warnings and notifies if needed."""
         self.log(f"{inspect.currentframe().f_code.co_name}")
         self.handle_warnings()
 
     def sensor_change_callback(self, entity, attribute, old, new, kwargs):
+        """State-change listener for warning sensors; triggers evaluation."""
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
         self.handle_warnings()
 
     def seconds_until_tomorrow(self):
+        """Return seconds remaining until next midnight local time."""
         now = datetime.now()
         tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         return int((tomorrow - now).total_seconds())
 
     def seconds_until_date(self, date):
+        """Return seconds from now (UTC) until the provided aware datetime.
+
+        If 'date' is naive (no tzinfo) it is assumed to be in UTC.
+        """
         now = datetime.now(timezone.utc)
 
         if date.tzinfo is None:  # If 'date' is naive, assume UTC
@@ -79,6 +84,11 @@ class WeatherWarning(BaseApp):
         return int((date - now).total_seconds())
 
     def get_warning_info(self, sensor, nr):
+        """Return a dict of warning attributes (name, headline, description, start, end).
+
+        The method reads sensor attributes like 'warning_{nr}_name' and parses
+        the start/end timestamps to datetime objects when present.
+        """
         warning_info = {
             "name": self.get_state(self._current_warn_sensor, attribute=f"warning_{nr}_name"),
             "headline": self.get_state(self._current_warn_sensor, attribute=f"warning_{nr}_headline"),
@@ -100,6 +110,13 @@ class WeatherWarning(BaseApp):
         return warning_info
 
     def process_warnings(self, sensor, tts_limit, tts_counters, prefix):
+        """Process warnings on the given sensor and publish notifications.
+
+        - sensor: entity id of a warning sensor
+        - tts_limit: per-warning limit to vocal announcements
+        - tts_counters: dict tracking how many times each warning was spoken
+        - prefix: textual prefix used for AWTRIX messages and TTS
+        """
         state = int(self.get_state(sensor))
 
         if state == 0:
@@ -114,6 +131,7 @@ class WeatherWarning(BaseApp):
                 if not warning_info["name"]:
                     continue
 
+                # Publish AWTRIX notification and optionally speak via TTS
                 self.notify_awtrix(
                     f"DWD {prefix} Warnung: {warning_info['headline']}. {warning_info['description']}",
                     f"weather{i}{prefix}",

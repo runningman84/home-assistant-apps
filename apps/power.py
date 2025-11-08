@@ -27,7 +27,6 @@ power_control:
 See module docstring and inline examples for usage.
 """
 
-import appdaemon.plugins.hass.hassapi as hass
 from base import BaseApp
 import inspect
 
@@ -36,6 +35,11 @@ import inspect
 class PowerControl(BaseApp):
 
     def initialize(self):
+        """Initialize PowerControl app.
+
+        Wires motion and presence listeners, schedules nightly actions and
+        registers state listeners for configured power controls.
+        """
         super().initialize()
 
         # setup sane defaults
@@ -88,6 +92,16 @@ class PowerControl(BaseApp):
         self.log("Startup finished")
 
     def count_switches(self, state = None):
+        """Return the number of configured power controls, optionally filtered.
+
+        Args:
+            state: Optional string state to filter by (e.g. 'on' or 'off').
+
+        Returns:
+            int: number of switches matching the provided state or total count
+            if state is None.
+        """
+
         self.log(f"count switches in state {state}", level = "DEBUG")
         if state is None:
             return len(self._power_controls)
@@ -102,13 +116,23 @@ class PowerControl(BaseApp):
         return count
 
     def count_on_switches(self):
+        """Shortcut: count switches in the 'on' state."""
+
         return self.count_switches("on")
 
     def count_off_switches(self):
+        """Shortcut: count switches in the 'off' state."""
+
         return self.count_switches("off")
 
     def update_power(self):
-        if(self.is_internal_change_allowed() == False):
+        """Evaluate conditions and turn power controls on or off accordingly.
+
+        This honors internal change lockouts and several environmental
+        inputs (motion, presence, media playback, alarm, vacation).
+        """
+
+        if not self.is_internal_change_allowed():
             remaining_seconds = self.get_remaining_seconds_before_internal_change_is_allowed()
             self.log(f"Doing nothing: Internal change is not allowed for {remaining_seconds:.2f} more seconds.")
             return
@@ -150,6 +174,8 @@ class PowerControl(BaseApp):
         self.turn_on_power()
 
     def turn_on_power(self):
+        """Turn on all configured power controls unless they're already on."""
+
         if self.count_switches() == self.count_switches("on"):
             self.log("All switches are already on")
             return
@@ -161,6 +187,8 @@ class PowerControl(BaseApp):
         self.record_internal_change()
 
     def turn_off_power(self):
+        """Turn off all configured power controls unless they're already off."""
+
         if self.count_switches() == self.count_switches("off"):
             self.log("All switches are already off")
             return
@@ -172,11 +200,20 @@ class PowerControl(BaseApp):
         self.record_internal_change()
 
     def periodic_time_callback(self, kwargs):
+        """Periodic timer callback that delegates to update_power.
+
+        Args:
+            kwargs (dict): AppDaemon timer kwargs (ignored).
+        """
         self.log(f"{inspect.currentframe().f_code.co_name}")
 
         self.update_power()
 
     def sensor_change_callback(self, entity, attribute, old, new, kwargs):
+        """Handler for sensor state changes that triggers a power update.
+
+        Args mirror AppDaemon's listen_state callback signature.
+        """
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         self.update_power()

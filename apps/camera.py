@@ -28,6 +28,12 @@ import appdaemon.plugins.hass.hassapi as hass
 class CameraImageScanner(hass.Hass):
 
     def initialize(self):
+        """Initialize scanner: read args and register motion sensor listeners.
+
+        Side effects:
+            - Registers listeners on sensors to start/stop image scanning.
+            - Starts a periodic run_every timer to manage processing cadence.
+        """
         self.log("Hello from CameraImageScanner")
 
         self._processing_handle = None
@@ -45,11 +51,25 @@ class CameraImageScanner(hass.Hass):
             self.listen_state(self.trigger_stop_image_scan_callback, sensor, new="off", old="on")
 
     def trigger_start_image_scan_callback(self, entity, attribute, old, new, kwargs):
+        """Callback invoked when a sensor transitions to 'on' to start processing.
+
+        Args:
+            entity (str): entity id that changed.
+            attribute (str): attribute that changed.
+            old (str): previous state.
+            new (str): new state.
+            kwargs (dict): additional AppDaemon kwargs.
+        """
         self.log(
             "Callback trigger_image_scan_callback from {}:{} {}->{}".format(entity, attribute, old, new))
         self.start_image_processing()
     
     def trigger_stop_image_scan_callback(self, entity, attribute, old, new, kwargs):
+        """Callback invoked when a sensor transitions to 'off' to possibly stop processing.
+
+        The method checks whether other sensors are still 'on' and only stops
+        if none remain active.
+        """
         self.log(
             "Callback trigger_stop_image_scan_callback from {}:{} {}->{}".format(entity, attribute, old, new))
 
@@ -61,6 +81,14 @@ class CameraImageScanner(hass.Hass):
         self.stop_image_processing()
 
     def count_sensors(self, state):
+        """Count sensors in the configured `_sensors` list that match `state`.
+
+        Args:
+            state (str): state to compare (e.g., 'on' or 'off').
+
+        Returns:
+            int: number of matching sensors.
+        """
         count = 0
         for sensor in self._sensors:
             if self.get_state(sensor) == state:
@@ -68,12 +96,19 @@ class CameraImageScanner(hass.Hass):
         return count
 
     def count_on_sensors(self):
+        """Return count of configured sensors currently in state 'on'."""
         return self.count_sensors("on")
 
     def count_off_sensors(self):
+        """Return count of configured sensors currently in state 'off'."""
         return self.count_sensors("off")
     
     def get_next_run_in_sec(self):
+        """Return a dynamic retry interval (seconds) based on processing count.
+
+        The implementation uses step thresholds to gradually shorten the interval
+        when the processing count is low, allowing faster re-checks.
+        """
         seconds = 1
         if(self._processing_count < 1000):
             seconds = 60
@@ -88,20 +123,30 @@ class CameraImageScanner(hass.Hass):
         return seconds
 
     def process_image(self, kwargs):
+        """Invoke the image_processing scan service for the configured processor.
+
+        This method increments an internal counter and reschedules itself
+        according to `get_next_run_in_sec` until the configured max count is reached.
+        """
         self.call_service(
-                "image_processing/scan", entity_id=self._image_processor)
+            "image_processing/scan", entity_id=self._image_processor)
         self._processing_count += 1
         self.log("Image processing count {}".format(self._processing_count))
         if self._processing_count < self._processing_max_count:
             self._processing_handle = self.run_in(self.process_image, self.get_next_run_in_sec())
 
     def start_image_processing(self):
+        """Start a periodic image processing run sequence.
+
+        Stops any existing handle, resets counters and schedules the first run.
+        """
         self.stop_image_processing()
         self._processing_count = 0
         self.log("Starting image processing")
         self._processing_handle = self.run_in(self.process_image, self.get_next_run_in_sec())
 
     def stop_image_processing(self):
+        """Stop any active image processing timer and mark processing as finished."""
         if self._processing_handle is not None:
             self.log("Stopping image processing")
             self.cancel_timer(self._processing_handle)

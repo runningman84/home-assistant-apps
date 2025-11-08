@@ -33,9 +33,7 @@ light_control:
 See module docstring and inline examples for usage.
 """
 
-import appdaemon.plugins.hass.hassapi as hass
 from base import BaseApp
-from datetime import datetime, timezone
 import inspect
 
 
@@ -117,13 +115,18 @@ class LightControl(BaseApp):
 
 
     def below_min_elevation(self):
+        """Return True if the sun elevation is below configured minimum."""
         if self.get_state("sun.sun", attribute = "elevation") < self._min_elevation:
             return True
         return False
 
     def below_min_illumination(self):
+        """Return True if any configured illumination sensor reports darkness.
+
+        Treats missing/unknown/unavailable readings as 'below threshold'.
+        """
         for sensor in self._illumination_sensors:
-            if self.get_state(sensor) == None:
+            if self.get_state(sensor) is None:
                 return True
             if self.get_state(sensor) == 'unknown':
                 return True
@@ -134,8 +137,12 @@ class LightControl(BaseApp):
         return False
 
     def above_max_illumination(self):
+        """Return True if any illumination sensor reports a value above max threshold.
+
+        Treats missing/unknown/unavailable readings as non-triggering.
+        """
         for sensor in self._illumination_sensors:
-            if self.get_state(sensor) == None:
+            if self.get_state(sensor) is None:
                 return False
             if self.get_state(sensor) == 'unknown':
                 return False
@@ -146,19 +153,26 @@ class LightControl(BaseApp):
         return False
 
     def periodic_time_callback(self, kwargs):
+        """Periodic scheduled callback to refresh light state evaluation."""
         self.log(f"{inspect.currentframe().f_code.co_name}")
 
         self.update_lights()
 
     def sensor_change_callback(self, entity, attribute, old, new, kwargs):
+        """Generic sensor/state change callback that triggers an update of lights."""
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         self.update_lights()
 
     def update_lights(self):
+        """Evaluate conditions and decide whether to turn lights on or off.
+
+        Considers presence, vacation, alarm state, motion, illumination and sun
+        elevation. Honors internal change throttling to avoid flapping.
+        """
         last_change = self.get_last_motion()
 
-        if(self.is_internal_change_allowed() == False):
+        if not self.is_internal_change_allowed():
             remaining_seconds = self.get_remaining_seconds_before_internal_change_is_allowed()
             self.log(f"Doing nothing: Internal change is not allowed for {remaining_seconds} more seconds.")
             return
@@ -209,6 +223,7 @@ class LightControl(BaseApp):
             return
 
     def turn_on_lights(self):
+        """Turn on lights or scenes according to current time (night/home) and config."""
         if self.count_lights() == self.count_lights("on"):
             self.log("All lights are already on")
             return
@@ -235,6 +250,7 @@ class LightControl(BaseApp):
         self.record_internal_change()
 
     def turn_off_lights(self):
+        """Turn off lights or activate configured off-scene."""
         if self.count_lights() == self.count_lights("off"):
             self.log("All lights are already off")
             return
@@ -254,18 +270,27 @@ class LightControl(BaseApp):
         self.record_internal_change()
 
     def is_auto_turn_on_enabled(self):
+        """Return True when auto turn-on behavior is enabled by configuration."""
         return self._auto_turn_on
 
     def is_auto_turn_off_enabled(self):
+        """Return True when auto turn-off behavior is enabled by configuration."""
         return self._auto_turn_off
 
     def is_auto_turn_on_disabled(self):
+        """Convenience: return True when auto turn-on is disabled."""
         return not self.is_auto_turn_on_enabled()
 
     def is_auto_turn_off_disabled(self):
+        """Convenience: return True when auto turn-off is disabled."""
         return not self.is_auto_turn_off_enabled()
 
     def flux_change_callback(self, entity, attribute, old, new, kwargs):
+        """React to alarm state changes to toggle the optional fluxer switch.
+
+        When alarm state becomes pending/triggered/arming/armed_* fluxer is turned
+        off; when alarm returns to disarmed/armed_home it is turned on.
+        """
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         if self._fluxer_switch is None:

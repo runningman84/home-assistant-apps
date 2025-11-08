@@ -27,16 +27,16 @@ See module docstring and inline examples for usage.
 """
 
 import appdaemon.plugins.hass.hassapi as hass
-import datetime
-import time
-import re
 import inspect
 
 
 
 class LightSwitch(hass.Hass):
-
     def initialize(self):
+        """Initialize the LightSwitch app and register remote event listeners.
+
+        Expected args: remotes (list), lights, lights_left, lights_right.
+        """
         self.log("Hello from LightSwitch")
 
         self.__remotes = self.args.get("remotes", [])
@@ -48,17 +48,21 @@ class LightSwitch(hass.Hass):
             self.listen_event(self.remote_callback, entity_id=remote, event_type="state_changed", event="state_changed")
 
     def debug_event(self, event_name, data, kwargs):
+        """LightSwitch debug helper: logs raw events for troubleshooting."""
         self.log(f"Debug event {event_name}:{data} {kwargs}")
 
     def remote_callback(self, event_name, data, kwargs):
+        """Handle remote button events and map them to light actions.
+
+        The handler expects the incoming event payload to contain the new_state
+        attributes and an 'event_type' attribute describing the button action.
+        """
         self.log(f"{inspect.currentframe().f_code.co_name} from {event_name}:{data}")
         event_type = data['new_state']['attributes'].get('event_type', None)
 
         if event_type is None:
             self.log(f"Warning: 'event_type' not found in {data['new_state']['attributes']}", level="WARNING")
             return  # Exit early to prevent further errors
-
-        entity_id = data['entity_id']
 
         if event_type == "brightness_up_click":
             self.log("brightness_up_click")

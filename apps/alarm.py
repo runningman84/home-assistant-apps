@@ -36,10 +36,8 @@ alarm:
 See module docstring and inline examples for usage.
 """
 
-import appdaemon.plugins.hass.hassapi as hass
 from base import BaseApp
-from datetime import datetime, timezone, timedelta
-import time
+from datetime import datetime, timezone
 import re
 import inspect
 
@@ -48,6 +46,14 @@ import inspect
 class AlarmControl(BaseApp):
 
     def initialize(self):
+        """
+        Initialize the AlarmControl app.
+
+        This sets up translations, sensor mappings, thresholds, listeners for
+        sensors/buttons/presence, scheduled tasks (auto-arm windows) and
+        initializes siren/notification state. It is intentionally comprehensive
+        because the app needs to wire many Home Assistant entities at start.
+        """
         super().initialize()
 
 
@@ -304,46 +310,60 @@ class AlarmControl(BaseApp):
         self.run_every(self.periodic_time_callback, "now+10", 60*10)
 
     def terminate(self):
+        """Cleanup on app termination.
+
+        Stops any running sirens and disarms the alarm if it is not already
+        disarmed.
+        """
         self.stop_burglar_siren()
         self.stop_fire_siren()
         if not self.is_alarm_disarmed():
             self.disarm_alarm()
 
     def is_time_in_arm_night_window(self):
+        """Return True when current time is within the auto-arm night window."""
         return self.now_is_between(self._alarm_arm_night_after_time, self._alarm_arm_night_before_time)
 
     # Backwards-compatible alias used across other apps
     def is_time_in_night_window(self):
+        """Backwards-compatible alias for night/arm window check."""
         return self.is_time_in_arm_night_window()
 
 
     def set_alarm_light_color(self, color_name="green", brightness_pct=100):
+        """Set configured alarm lights to the given color and brightness."""
         self.log(f"Setting alarm light to color {color_name} and brightness {brightness_pct}")
         for light in self._alarm_lights:
             self.call_service(
                 "light/turn_on", entity_id=light, color_name=color_name, brightness_pct=brightness_pct)
 
     def set_alarm_type(self, alarm_type):
+        """Record the current alarm type (e.g., 'burglar', 'fire', 'water')."""
         self.log(f"Setting alarm type to {alarm_type}", level = "DEBUG")
         self._alarm_type = alarm_type
 
     def get_alarm_type(self):
+        """Return the current alarm type or None if not set."""
         return self._alarm_type
 
     def set_alarm_message(self, message):
+        """Set the current alarm message and notify AWTRIX for display."""
         self.log(f"Setting up alarm message: {message}", level = "DEBUG")
         self.notify_awtrix(message, "hass_alarm_msg")
         self._alarm_message = message
 
     def reset_alarm_message(self):
+        """Clear the active alarm message and clear AWTRIX display."""
         self.log("Resetting alarm message", level = "DEBUG")
         self.reset_awtrix("hass_alarm_msg")
         self._alarm_message = None
 
     def get_alarm_message(self):
+        """Return the currently set alarm message (or None)."""
         return self._alarm_message
 
     def flash_warning(self, kwargs):
+        """Timer callback that toggles alarm lights repeatedly for a flash warning."""
         for light in self._alarm_lights:
             self.toggle(light)
         self._flash_count += 1
@@ -352,6 +372,7 @@ class AlarmControl(BaseApp):
             self._flash_warning_handle = self.run_in(self.flash_warning, 1)
 
     def start_flash_warning(self, color_name="red", brightness_pct=100):
+        """Begin flashing configured alarm lights (color/brightness) repeatedly."""
         if len(self._alarm_lights) == 0:
             self.log("Cannot start flash warning because no alarm lights are defined")
             return
@@ -362,6 +383,7 @@ class AlarmControl(BaseApp):
         self._flash_warning_handle = self.run_in(self.flash_warning, 1)
 
     def stop_flash_warning(self):
+        """Stop any ongoing flash warning timer and finalize flash state."""
         if len(self._alarm_lights) == 0:
             self.log("Cannot stop flash warning because no alarm lights are defined")
             return
@@ -372,6 +394,7 @@ class AlarmControl(BaseApp):
             self._flash_warning_handle = None
 
     def media_warning(self, kwargs):
+        """Timer loop to repeatedly send media notifications for an alarm."""
         self.media_warning_with_delay(self.get_alarm_message())
         self._media_warning_count += 1
         self.log(f"Media warning count {self._media_warning_count}")
@@ -383,12 +406,14 @@ class AlarmControl(BaseApp):
         self.run_in(self.notify_media, delay, message=message)
 
     def start_media_warning(self):
+        """Start repeating media notifications for alarms after a short initial delay."""
         self.stop_media_warning()
         self._media_warning_count = 0
         self.log("Starting media warning timer")
         self._media_warning_handle = self.run_in(self.media_warning, self._media_warning_initial_delay)
 
     def stop_media_warning(self):
+        """Stop any ongoing repeating media notifications for alarms."""
         if self._media_warning_handle is not None:
             self.log("Stopping media warning timer")
             self.cancel_timer(self._media_warning_handle)
@@ -396,6 +421,7 @@ class AlarmControl(BaseApp):
             self._media_warning_handle = None
 
     def start_burglar_siren(self):
+        """Turn on configured burglar siren switches unless in silent mode."""
         if self.in_silent_mode():
             self.log("Suppressed siren because of silent mode")
             return
@@ -405,24 +431,33 @@ class AlarmControl(BaseApp):
             self.turn_on(siren)
 
     def stop_burglar_siren(self):
+        """Turn off configured burglar siren switches."""
         for siren in self._burglar_siren_switches:
             self.log(f"Turning off burglar siren {siren}")
             self.turn_off(siren)
 
     def start_fire_siren(self):
+        """Turn on configured fire siren switches."""
         for siren in self._fire_siren_switches:
             self.log(f"Turning on fire siren {siren}")
             self.turn_on(siren)
 
     def stop_fire_siren(self):
+        """Turn off configured fire siren switches."""
         for siren in self._fire_siren_switches:
             self.log(f"Turning off fire siren {siren}")
             self.turn_off(siren)
 
     def debug_event(self, event_name, data, kwargs):
+        """Utility handler to log debug events (used for troubleshooting)."""
         self.log(f"Debug event {event_name}:{data} {kwargs}")
 
     def alarm_button_callback(self, event_name, data, kwargs):
+        """Handle physical button events and map them to alarm actions.
+
+        Expects the event payload to include an 'event_type' attribute that maps
+        to single/double/hold/triple/quadruple press semantics.
+        """
         self.log(f"{inspect.currentframe().f_code.co_name} from {event_name}:{data}")
 
         event_type = data['new_state']['attributes'].get('event_type', None)
@@ -449,12 +484,17 @@ class AlarmControl(BaseApp):
             self.log("Ignoring event")
 
     def button_arm_away(self, entity):
-        if(self.is_alarm_disarmed() == False):
+        """Arm the alarm in 'away' mode (via button action).
+
+        Sends a notification and calls arm_alarm('away'). If vacation mode is
+        enabled, switches to 'vacation' arming instead.
+        """
+        if not self.is_alarm_disarmed():
             self.log(f"Ignoring call because alarm system is in state {self.get_alarm_state()}")
             return
 
         mode = "arm_away"
-        if(self.in_vacation_mode()):
+        if self.in_vacation_mode():
             mode = "arm_vacation"
 
         message = self.translate("button_{}".format(mode)).format(self.get_state(entity, attribute = "friendly_name"))
@@ -463,7 +503,8 @@ class AlarmControl(BaseApp):
         self.arm_alarm('away')
 
     def button_arm_home(self, entity):
-        if(self.is_alarm_disarmed() == False):
+        """Arm the alarm in 'home' mode (via button action)."""
+        if not self.is_alarm_disarmed():
             self.log(f"Ignoring call because alarm system is in state {self.get_alarm_state()}")
             return
 
@@ -473,6 +514,7 @@ class AlarmControl(BaseApp):
         self.arm_alarm('home')
 
     def button_disarm(self, entity):
+        """Disarm the alarm via a button action and send notification."""
         if(self.is_alarm_disarmed()):
             self.log(f"Ignoring call because alarm system is in state {self.get_alarm_state()}")
             return
@@ -483,6 +525,7 @@ class AlarmControl(BaseApp):
         self.disarm_alarm()
 
     def button_trigger_alarm(self, entity):
+        """Force trigger the alarm using a physical button (debug/manual)."""
         self.log("Trigger alarm using button")
 
         if self.get_state("binary_sensor.zigbee2mqtt_bridge_connection_state") != 'on':
@@ -499,18 +542,28 @@ class AlarmControl(BaseApp):
         self.trigger_alarm('security')
 
     def classify_sensor(self, device_class: str) -> str:
+        """Return the sensor type key for a device_class based on mapping.
+
+        Returns a sensor_type string (e.g., 'door','motion') or None when unknown.
+        """
         for sensor_type, keywords in self._sensor_mapping.items():
             if device_class in keywords:
                 return sensor_type
         return None
 
     def classify_alarm(self, device_class: str) -> str:
+        """Map a sensor device_class to an alarm category (e.g., 'burglar', 'fire')."""
         for sensor_type, keywords in self._alarm_mapping.items():
             if device_class in keywords:
                 return sensor_type
         return None
 
     def is_sensor_monitored(self, sensor):
+        """Return True if a sensor is currently monitored for alarm conditions.
+
+        A sensor is monitored when it appears in the configured sensor lists for
+        the current or always arming states, and is not present in the ignore list.
+        """
         desired_arming_states = ['always', self.get_alarm_state(), self._arming_state]
 
         if sensor in self._sensors_ignored:
@@ -525,6 +578,11 @@ class AlarmControl(BaseApp):
         return False
 
     def check_sensor(self, sensor, desired_state = 'off', timeout = None):
+        """Validate a sensor's state against expected condition and optional timeout.
+
+        Returns False when the sensor is in an unexpected state or changed too
+        recently; True when it is OK or when sensor state is invalid for checks.
+        """
         sensor_type = self.get_state(sensor, attribute = "device_class")
         sensor_state = self.get_state(sensor)
         last_update = self.get_seconds_since_update(sensor)
@@ -569,13 +627,22 @@ class AlarmControl(BaseApp):
 
 
     def get_alerts(self, timeout = None, arming_state = None, alarm_type = None):
+        """Scan configured sensors and return a dict of alerts by alarm category.
+
+        Args:
+            timeout (float|None): per-sensor timeout override in seconds.
+            arming_state (str|None): specific arming state to evaluate; defaults to current.
+            alarm_type (str|None): filter results to only this alarm category.
+
+        Returns:
+            dict: mapping alarm_category -> list of sensor entity_ids that triggered.
+        """
         alerts = {}
 
         if arming_state is None:
             arming_state = self.get_alarm_state()
 
         desired_arming_states = ['always', arming_state]
-        desired_sensor_state = 'on'
 
         self.log(f"Looking for sensors in category {desired_arming_states}", level="DEBUG")
 
@@ -623,6 +690,7 @@ class AlarmControl(BaseApp):
         return alerts
 
     def ignore_sensors(self, arming_state):
+        """Add currently alerting sensors for the given arming_state to the ignore list."""
         alerts = self.get_alerts(0, arming_state)
         self._sensors_ignored = []
 
@@ -633,6 +701,7 @@ class AlarmControl(BaseApp):
                     self._sensors_ignored.append(sensor)
 
     def count_alerts_by_arming_state(self, arming_state, timeout = None):
+        """Return the total number of alerting sensors for a given arming state."""
         alerts = self.get_alerts(timeout, arming_state)
 
         # Count items in each category
@@ -643,28 +712,35 @@ class AlarmControl(BaseApp):
         return total_count
 
     def is_arming_home_possible(self):
+        """Return True when arming to 'home' is allowed (no blocking alerts)."""
         if self.count_alerts_by_arming_state('armed_home', 30) > 0:
             return False
         return True
 
     def is_arming_away_possible(self):
+        """Return True when arming to 'away' is allowed (no blocking alerts)."""
         if self.count_alerts_by_arming_state('armed_away', 30) > 0:
             return False
         return True
 
     def is_auto_arming_home_allowed(self):
+        """Policy: whether auto-arming to 'home' is allowed. Overrideable."""
         return False
 
     def is_auto_arming_away_allowed(self):
+        """Policy: whether auto-arming to 'away' is allowed. Overrideable."""
         return True
 
     def is_auto_arming_night_allowed(self):
+        """Policy: whether auto-arming to 'night' is allowed. Overrideable."""
         return True
 
     def is_auto_arming_vacation_allowed(self):
+        """Policy: whether auto-arming to 'vacation' is allowed. Overrideable."""
         return True
 
     def is_last_disarming_recent(self):
+        """Return True if the alarm was disarmed recently (within 10 minutes)."""
         if self._last_disarm_timestamp is None:
             return False
 
@@ -680,6 +756,18 @@ class AlarmControl(BaseApp):
         return False
 
     def is_auto_arming_allowed(self):
+        """
+        Determine whether automatic arming is allowed right now.
+
+        This implements the high-level policy for auto-arming and consults
+        helper predicates (recent disarm, guest/vacation mode, presence and
+        time windows). It delegates to finer-grained policy hooks such as
+        `is_auto_arming_home_allowed` and `is_auto_arming_away_allowed` which
+        can be overridden in subclasses or configured differently.
+
+        Returns:
+            bool: True when auto-arming is permitted by policy, False otherwise.
+        """
         if self.is_last_disarming_recent():
             return False
         if self.in_guest_mode():
@@ -692,10 +780,20 @@ class AlarmControl(BaseApp):
             return self.is_auto_arming_home_allowed()
         if self.is_nobody_at_home():
             return self.is_auto_arming_away_allowed()
-        
+
         return False
 
     def get_desired_arming_state(self):
+        """
+        Compute the desired arming state based on current modes and presence.
+
+        The returned value is one of: 'vacation', 'night', 'home', 'away', or
+        None when no automatic decision can be made. This is used by
+        `setup()` to decide whether to arm/disarm the alarm.
+
+        Returns:
+            str|None: desired arming state or None.
+        """
         if self.in_vacation_mode():
             return 'vacation'
         if self.is_somebody_at_home():
@@ -708,7 +806,14 @@ class AlarmControl(BaseApp):
         return None
 
     def setup(self):
-        self.log(f"Starting setup")
+        """
+        Determine and apply the desired alarm state based on presence, modes and schedules.
+
+        This method inspects current device trackers, guest/vacation modes and
+        time windows and decides whether to arm (home/away/night/vacation) or
+        disarm the alarm. It is safe to call repeatedly.
+        """
+        self.log("Starting setup")
 
         self.log(f"System is in state {self.get_alarm_state()}")
 
@@ -770,7 +875,14 @@ class AlarmControl(BaseApp):
 
 
     def analyze_and_trigger(self):
-        self.log(f"Starting analyze_and_trigger")
+        """
+        Analyze current sensor alerts and trigger an alarm if thresholds are met.
+
+        This collects alerts from configured sensors and evaluates them against
+        configured thresholds for fire, water and burglar conditions. If the
+        thresholds are exceeded the corresponding alarm is triggered.
+        """
+        self.log("Starting analyze_and_trigger")
 
         self.log(f"System is in state {self.get_alarm_state()}")
 
@@ -800,7 +912,7 @@ class AlarmControl(BaseApp):
             self.log("Doing nothing because alarm is already triggered")
             return
 
-        self.log(f"Fetching current alerts")
+        self.log("Fetching current alerts")
         alerts = self.get_alerts()
 
         if sum(len(v) for v in alerts.values()) == 0:
@@ -835,10 +947,23 @@ class AlarmControl(BaseApp):
                 self.trigger_alarm('burglar', alerts)
                 return
 
-        self.log(f"Finished analyze_and_trigger")
+        self.log("Finished analyze_and_trigger")
 
 
     def optimize_sensor_name(self, sensor):
+        """
+        Normalize a sensor friendly name for human-readable messages.
+
+        Removes common words (in multiple languages), punctuation and trims
+        whitespace so the resulting short name can be used in spoken/printed
+        alarm messages.
+
+        Args:
+            sensor (str): entity id of the sensor.
+
+        Returns:
+            str: optimized short sensor name.
+        """
         name = self.get_state(sensor, attribute = "friendly_name")
         name = name.replace("/", " ")
         name = name.replace("_", " ")
@@ -853,6 +978,15 @@ class AlarmControl(BaseApp):
         return name
 
     def create_alarm_message(self, alerts):
+        """
+        Build a human-readable alarm message from the provided alerts map.
+
+        Args:
+            alerts (dict): mapping alarm_category -> list of sensors that triggered.
+
+        Returns:
+            str: composed message suitable for notifications and TTS.
+        """
         messages = []
         sensors_by_category = {}
 
@@ -867,7 +1001,6 @@ class AlarmControl(BaseApp):
 
             translation_key = alarm_type + '_alert'
             messages.append(self.translate(translation_key))
-            devices = []
             for sensor in sensor_list:
                 name = self.optimize_sensor_name(sensor)
                 sensor_type = self.get_state(sensor, attribute = "device_class")
@@ -894,20 +1027,50 @@ class AlarmControl(BaseApp):
         return (message)
 
     def call_alarm_control_panel(self, service_action):
+        """
+        Helper that calls the configured alarm_control_panel with the given action.
+
+        Args:
+            service_action (str): suffix for the alarm_control_panel service
+                (for example 'alarm_arm_home', 'alarm_disarm', 'alarm_trigger').
+        """
         self.log("Calling service alarm_control_panel/" + service_action)
         self.call_service("alarm_control_panel/" + service_action,
                             entity_id=self._alarm_control_panel, code=self._alarm_pin)
 
     def arm_alarm(self, mode):
+        """
+        Arm the configured alarm_control_panel in the given mode.
+
+        Args:
+            mode (str): one of 'home', 'away', 'night', 'vacation' representing
+                the arming mode to request on the alarm_control_panel.
+        """
         self.log("arm_alarm_" + mode, level="WARNING")
         service_action = 'alarm_arm_' + mode
         self.call_alarm_control_panel(service_action)
 
     def disarm_alarm(self):
+        """
+        Disarm the configured alarm_control_panel.
+
+        This wrapper calls the underlying alarm control service with the
+        configured pin (if any) and logs the action.
+        """
         self.log("disarm_alarm", level="WARNING")
         self.call_alarm_control_panel('alarm_disarm')
 
     def trigger_alarm(self, alarm_type, alerts = {}):
+        """
+        Trigger the alarm immediately for the given alarm type.
+
+        This sets the internal alarm type/message, notifies AWTRIX and calls
+        the alarm control panel trigger service.
+
+        Args:
+            alarm_type (str): category of alarm, e.g. 'burglar', 'fire', 'water'.
+            alerts (dict): optional alerts mapping used to build the message.
+        """
         self.log("trigger_alarm_" + alarm_type, level="WARNING")
 
         self.set_alarm_type(alarm_type)
@@ -917,12 +1080,24 @@ class AlarmControl(BaseApp):
         self.call_alarm_control_panel("alarm_trigger")
 
     def periodic_time_callback(self, kwargs):
+        """
+        Periodic timer callback used to refresh setup and analyze sensors.
+
+        This is typically scheduled via run_daily/run_every to re-evaluate
+        auto-arming and to check for newly triggered sensors.
+        """
         self.log(f"{inspect.currentframe().f_code.co_name}")
 
         self.setup()
         self.analyze_and_trigger()
 
     def presence_change_callback(self, entity, attribute, old, new, kwargs):
+        """
+        Callback for presence (device_tracker) changes.
+
+        If someone returns home the alarm may be automatically disarmed. In
+        all cases this triggers a re-evaluation via `setup()`.
+        """
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         if entity in self._device_trackers and new == 'home':
@@ -934,12 +1109,25 @@ class AlarmControl(BaseApp):
         self.setup()
 
     def sensor_change_callback(self, entity, attribute, old, new, kwargs):
+        """
+        Generic sensor state change callback.
+
+        When a monitored sensor changes this will run the analyze/trigger
+        flow to decide if an alarm should be raised.
+        """
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         if self.is_sensor_monitored(entity):
             self.analyze_and_trigger()
 
     def control_change_callback(self, entity, attribute, old, new, kwargs):
+        """
+        Handler for changes to the alarm control panel entity.
+
+        This updates internal state (arming_state, ignored sensors), controls
+        sirens/notifications and forwards a notification describing the new
+        alarm system state.
+        """
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         message = self.translate("alarm_system_" + self.get_alarm_state())
@@ -988,15 +1176,42 @@ class AlarmControl(BaseApp):
 
     # Threshold getter functions for dynamic adjustment
     def get_fire_sensor_threshold(self):
+        """
+        Return the numeric threshold for fire sensors required to trigger a fire alarm.
+
+        Returns:
+            int: number of fire sensors required to trigger.
+        """
         return self._fire_sensor_threshold
 
     def get_water_sensor_threshold(self):
+        """
+        Return the numeric threshold for water sensors required to trigger a water alarm.
+
+        Returns:
+            int: number of water sensors required to trigger.
+        """
         return self._water_sensor_threshold
 
     def get_armed_home_sensor_threshold(self):
+        """
+        Return the threshold used when checking burglar sensors while armed in 'home' mode.
+
+        Returns:
+            int: number of burglar sensors required to trigger in 'home' mode.
+        """
         return self._armed_home_sensor_threshold
 
     def get_armed_away_sensor_threshold(self):
+        """
+        Return the threshold used when checking burglar sensors while armed in 'away' mode.
+
+        If a vacuum cleaner is actively cleaning or returning the threshold is
+        lowered to 1 to avoid false positives.
+
+        Returns:
+            int: number of burglar sensors required to trigger in 'away' mode.
+        """
         if self.count_returning_vacuum_cleaners() > 0 or self.count_cleaning_vacuum_cleaners() > 0:
             return 1
         return self._armed_away_sensor_threshold

@@ -29,7 +29,12 @@ class TelegramBotEventListener(hass.Hass):
     """Event listener for Telegram bot events."""
 
     def initialize(self):
-        """Configure defaults"""
+        """Configure defaults and register event/state listeners.
+
+        This sets up which alarm and guest-control entities to monitor and
+        registers handlers for Telegram commands and callbacks used to
+        control the alarm and to send status messages to configured users.
+        """
         self._alarm_control_panel = self.args.get("alarm_control_panel", "alarm_control_panel.ha_alarm")
         self._guest_control = self.args.get("guest_control", None)
         self._alarm_pin = self.args.get("alarm_pin", None)
@@ -73,12 +78,18 @@ class TelegramBotEventListener(hass.Hass):
     def receive_telegram_command(self, event_id, payload_event, *args):
         """Event listener for Telegram callback queries."""
         assert event_id == 'telegram_command'
-        user_id = payload_event['user_id']
-        chat_id = payload_event['chat_id']
+        # user_id = payload_event['user_id']
+        # chat_id = payload_event['chat_id']
 
         self.log("Got command {}".format(payload_event))
 
     def alarm_state_changed_callback(self, entity, attribute, old, new, kwargs):
+        """React to alarm state changes and notify configured users.
+
+        Builds an inline keyboard appropriate for the new alarm state and
+        forwards a message to each user id in `_user_ids`.
+        """
+
         self.log(
             "Callback alarm_state_changed_callback from {}:{} {}->{}".format(entity, attribute, old, new))
 
@@ -112,7 +123,17 @@ class TelegramBotEventListener(hass.Hass):
                                 })
 
     def receive_telegram_callback_alarm(self, event_id, payload_event, *args):
-        """Event listener for Telegram callback queries."""
+        """Handle Telegram callback queries for alarm control buttons.
+
+        This method handles callback payloads like '/alarm_arm_home',
+        '/alarm_arm_away' and '/alarm_disarm'. It performs the requested
+        alarm operation, answers the callback query and edits the original
+        message to reflect the new alarm state.
+
+        Parameters match AppDaemon's listen_event signature:
+        - event_id: should be 'telegram_callback'
+        - payload_event: dict containing 'data', 'id', 'user_id' and optional 'message'
+        """
         assert event_id == 'telegram_callback'
         data_callback = payload_event['data']
         callback_id = payload_event['id']
@@ -120,7 +141,9 @@ class TelegramBotEventListener(hass.Hass):
         title = '*Alarm Control*'
 
         self.log("Got callback {}".format(payload_event))
-
+        # Handlers for alarm control callbacks. Each branch performs the
+        # requested alarm action, answers the callback query and edits the
+        # originating message so the UI reflects the current state.
         if data_callback == '/alarm_arm_home':  # Message editor:
             self.call_service("alarm_control_panel/alarm_arm_home",
                               entity_id=self._alarm_control_panel, code=self._alarm_pin)
@@ -134,13 +157,13 @@ class TelegramBotEventListener(hass.Hass):
                                 })
 
             # Edit the message origin of the callback query
-            msg_id = payload_event['message']['message_id']
-            user = payload_event['from_first']
+            msg_id = payload_event.get('message', {}).get('message_id')
+            chat_id = payload_event.get('message', {}).get('chat', {}).get('id', user_id)
             msg = "Alarm mode is {}".format(self.get_state(self._alarm_control_panel)).replace('_', ' ')
             self.call_service('telegram_bot/edit_message',
                                 service_data={
                                     "chat_id" : chat_id,
-                                    "message_id" : message_id,
+                                    "message_id" : msg_id,
                                     "title" : title,
                                     "message" : msg
                                 })
@@ -157,13 +180,13 @@ class TelegramBotEventListener(hass.Hass):
                                 })
 
             # Edit the message origin of the callback query
-            msg_id = payload_event['message']['message_id']
-            user = payload_event['from_first']
+            msg_id = payload_event.get('message', {}).get('message_id')
+            chat_id = payload_event.get('message', {}).get('chat', {}).get('id', user_id)
             msg = "Alarm mode is {}".format(self.get_state(self._alarm_control_panel)).replace('_', ' ')
             self.call_service('telegram_bot/edit_message',
                                 service_data={
                                     "chat_id" : chat_id,
-                                    "message_id" : message_id,
+                                    "message_id" : msg_id,
                                     "title" : title,
                                     "message" : msg
                                 })
@@ -178,13 +201,13 @@ class TelegramBotEventListener(hass.Hass):
                               show_alert=True)
 
             # Edit the message origin of the callback query
-            msg_id = payload_event['message']['message_id']
-            user = payload_event['from_first']
+            msg_id = payload_event.get('message', {}).get('message_id')
+            chat_id = payload_event.get('message', {}).get('chat', {}).get('id', user_id)
             msg = "Alarm mode is {}".format(self.get_state(self._alarm_control_panel)).replace('_', ' ')
             self.call_service('telegram_bot/edit_message',
                                 service_data={
                                     "chat_id" : chat_id,
-                                    "message_id" : message_id,
+                                    "message_id" : msg_id,
                                     "title" : title,
                                     "message" : msg
                                 })
@@ -286,7 +309,7 @@ class TelegramBotEventListener(hass.Hass):
         assert event_id == 'telegram_command'
         #assert self._alarm_control_panel is not None
         user_id = payload_event['user_id']
-        chat_id = payload_event['chat_id']
+        # chat_id = payload_event['chat_id']
 
         if(self.get_state(self._alarm_control_panel) == 'disarmed'):
             keyboard = [[("Arm alarm home", "/alarm_arm_home"),

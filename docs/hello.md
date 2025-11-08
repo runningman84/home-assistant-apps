@@ -1,13 +1,9 @@
 # HelloWorld
 
-HelloWorld app: simple example app that logs startup messages.
+Minimal example AppDaemon app used as a template.
 
-Main features:
-- Minimal example that demonstrates the AppDaemon lifecycle and logging.
-
-This file is intentionally simple and used as a template for new apps.
-
-See module docstring and inline examples for usage.
+This app demonstrates a simple initialize hook and logging. It has no
+arguments and is useful as a template for new apps.
 
 ## Minimal apps.yaml snippet
 
