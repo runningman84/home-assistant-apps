@@ -31,7 +31,6 @@ This repository contains the AppDaemon application code. A sample configuration 
     - [docs/weather.md](docs/weather.md) — WeatherWarning
     - [docs/cleanup.md](docs/cleanup.md) — Cleanup
     - [docs/dog.md](docs/dog.md) — GuardDog
-    - [docs/heat.md](docs/heat.md) — HeatSaver
     - [docs/hello.md](docs/hello.md) — HelloWorld
 
 	Quick table of contents
