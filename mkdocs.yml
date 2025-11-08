@@ -1,0 +1,26 @@
+site_name: home-assistant-apps
+site_description: AppDaemon apps and quick-start docs
+nav:
+  - Home: README.md
+  - Docs:
+    - Index: docs/index.md
+    - Alarm: docs/alarm.md
+    - Climate: docs/climate.md
+    - Light: docs/light.md
+    - LightSwitch: docs/light_switch.md
+    - Power: docs/power.md
+    - Camera: docs/camera.md
+    - Frigate: docs/frigate.md
+    - Awtrix: docs/awtrix.md
+    - Telegram: docs/telegram.md
+    - TemperatureSync: docs/temperature_sync.md
+    - Waste: docs/waste.md
+    - Weather: docs/weather.md
+    - Cleanup: docs/cleanup.md
+    - GuardDog: docs/dog.md
+    - HeatSaver: docs/heat.md
+    - Hello: docs/hello.md
+site_url: https://runningman84.github.io/home-assistant-apps
+theme:
+  name: mkdocs
+*** End Patch

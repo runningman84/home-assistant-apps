@@ -1,0 +1,31 @@
+name: docs-check
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  validate-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find apps and docs
+        run: |
+          set -euo pipefail
+          missing=0
+          for f in apps/*.py; do
+            name=$(basename "$f" .py)
+            doc=docs/${name}.md
+            if [ ! -f "$doc" ]; then
+              echo "Missing doc for $name: expected $doc"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            echo "One or more app docs missing"
+            exit 1
+          fi
+      - name: Success
+        run: echo "All apps have docs."

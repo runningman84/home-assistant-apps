@@ -1,5 +1,7 @@
 # home-assistant-apps
 
+[![Docs](https://img.shields.io/badge/docs-available-blue)](https://github.com/runningman84/home-assistant-apps/tree/master/docs)
+
 Home Assistant utility apps implemented for AppDaemon. These small apps provide common automations such as an alarm control, climate helpers, light and power automation, camera integration and more.
 
 This repository contains the AppDaemon application code. A sample configuration showing every app and its options is available at `sample_config/apps.yaml` and a minimal example in `sample_config/scripts_minimal.yaml`.
@@ -27,6 +29,13 @@ This repository contains the AppDaemon application code. A sample configuration 
 	 - `docs/dog.md` — GuardDog
 	 - `docs/heat.md` — HeatSaver
 	 - `docs/hello.md` — HelloWorld
+
+	Quick table of contents
+	----------------------
+
+	- Getting started: see "Install / Usage" below
+	- Main automations: `docs/alarm.md`, `docs/light.md`, `docs/climate.md`, `docs/power.md`
+	- All docs: `docs/index.md`
 
 ## Requirements
 
