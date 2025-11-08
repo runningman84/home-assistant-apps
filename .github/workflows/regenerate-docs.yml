@@ -1,0 +1,52 @@
+name: regenerate-docs
+
+on:
+  push:
+    branches: [ master ]
+    # don't trigger on docs-only commits to avoid recursion
+    paths-ignore:
+      - 'docs/**'
+      - '.github/workflows/regenerate-docs.yml'
+
+jobs:
+  regen:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Skip if triggered by actions bot
+        if: github.actor == 'github-actions[bot]'
+        run: |
+          echo "Triggered by actions bot; skipping to avoid loop"
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml
+
+      - name: Generate docs
+        run: |
+          python scripts/generate_docs.py
+
+      - name: Commit and push docs (if changed)
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs
+          if git diff --cached --quiet; then
+            echo "No docs changes to commit"
+            exit 0
+          fi
+          git commit -m "docs: regenerate docs [skip ci]"
+          git push origin HEAD:master
