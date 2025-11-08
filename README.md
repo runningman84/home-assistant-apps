@@ -9,6 +9,7 @@ This repository contains the AppDaemon application code. A sample configuration 
 - Sample config: `sample_config/apps.yaml`
 - Minimal example: `sample_config/scripts_minimal.yaml`
 - App source: `apps/` directory
+ - Apps reference: `APPS.md`
 
 ## Requirements
 
