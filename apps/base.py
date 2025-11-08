@@ -1,8 +1,26 @@
+"""Base utilities for AppDaemon apps providing common helpers and configuration defaults.
+
+This module provides a `BaseApp` class that other app modules inherit from. It
+centralizes common configuration keys, sensible defaults, and utility helpers used
+across multiple apps (e.g., motion/opening counters, night window helpers, TTS/awtrix helpers).
+
+Common args provided by `BaseApp` (all optional unless noted):
+- opening_sensors, motion_sensors, illumination_sensors, device_trackers
+- vacation_control, guest_control, alarm_control_panel
+- night_start, night_end, night_start_workday, night_end_workday
+- notify_service, awtrix_prefixes, tts_devices
+- external_change_timeout, internal_change_timeout
+
+See module docstrings and inline examples for canonical usage and common options used across apps.
+"""
+
 import appdaemon.plugins.hass.hassapi as hass
 from datetime import datetime, timezone, timedelta, date
 import json
 import hashlib
 import inspect
+
+
 
 class BaseApp(hass.Hass):
     def initialize(self):

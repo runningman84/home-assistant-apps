@@ -1,21 +1,29 @@
+"""TelegramBotEventListener app: handle Telegram bot commands and callbacks for remote control and notifications.
+
+Main features:
+- Listen for telegram command/callback events and map them to actions (alarm control, guest mode, pictures).
+- Send messages, inline keyboards and edit messages in response to alarm state changes.
+
+Key configuration keys:
+- user_ids: list of Telegram numeric user ids to send notifications to.
+- alarm_control_panel: the alarm control panel entity to monitor and control.
+- alarm_pin: optional pin to use when arming/disarming via Telegram callbacks.
+
+Example:
+```yaml
+telegram_bot:
+    module: telegram
+    class: TelegramBotEventListener
+    user_ids:
+        - 123456789
+    alarm_control_panel: alarm_control_panel.ha_alarm
+```
+
+See module docstring and inline examples for usage.
+"""
+
 import appdaemon.plugins.hass.hassapi as hass
 
-# {
-#     "event_type": "folder_watcher",
-#     "data": {
-#         "event_type": "modified",
-#         "path": "/tmp/camera_doods_flur_unten_20190908_223303.jpg",
-#         "file": "camera_doods_flur_unten_20190908_223303.jpg",
-#         "folder": "/tmp"
-#     },
-#     "origin": "LOCAL",
-#     "time_fired": "2019-09-08T20:33:04.273143+00:00",
-#     "context": {
-#         "id": "7f43b291edba4b7cb818bd6c11fc937d",
-#         "parent_id": null,
-#         "user_id": null
-#     }
-# }
 
 class TelegramBotEventListener(hass.Hass):
     """Event listener for Telegram bot events."""

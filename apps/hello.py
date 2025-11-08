@@ -1,10 +1,15 @@
+"""HelloWorld app: simple example app that logs startup messages.
+
+Main features:
+- Minimal example that demonstrates the AppDaemon lifecycle and logging.
+
+This file is intentionally simple and used as a template for new apps.
+
+See module docstring and inline examples for usage.
+"""
+
 import appdaemon.plugins.hass.hassapi as hass
 
-#
-# Hello World App
-#
-# Args:
-#
 
 class HelloWorld(hass.Hass):
 

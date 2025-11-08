@@ -1,13 +1,43 @@
+"""ClimateControl app: manage HVAC devices and temperature modes based on presence, schedules and sensors.
+
+Main features:
+- Maintain different target temperatures for home, away, night, motion and vacation modes.
+- Integrate external/outside temperature sensors to adjust behavior and enable summer mode.
+- Respect opening sensors (windows/doors) and air-quality sensors (AQI, CO₂, VOC) to inhibit heating/cooling.
+- React to motion, guest or vacation controls and to manual adjustments from GUI controls.
+- Support per-mode control entities to change target temperatures via UI.
+
+Key configuration keys (extracted from implementation):
+- climate_controls: list of climate entity ids to manage (required).
+- external_temperature_sensor / outside_temperature_sensor: optional sensor ids used for logic.
+- home_temperature, night_temperature, away_temperature, vacation_temperature, motion_temperature: numeric targets.
+- *_temperature_control: optional entity ids (number/select) used to change the respective temperature via UI.
+- aqi_sensor, voc_sensor, co2_sensor: optional air-quality sensors and thresholds (aqi_threshold, voc_threshold, co2_threshold).
+- summer_temperature_threshold, summer_temperature: thresholds and target for summer behavior.
+- night_start, night_end, night_start_workday, night_end_workday: configurable night windows (in BaseApp defaults).
+
+Example:
+```yaml
+climate_control:
+    module: climate
+    class: ClimateControl
+    climate_controls:
+        - climate.living_room
+    opening_sensors:
+        - binary_sensor.window_living
+    home_temperature: 21
+    away_temperature: 17
+    vacation_temperature: 15
+```
+
+See module docstring and inline examples for usage.
+"""
+
 import appdaemon.plugins.hass.hassapi as hass
 from base import BaseApp
 from datetime import datetime, timezone
 import inspect
 
-#
-# ClimateControl App
-#
-# Args:
-#
 
 
 class ClimateControl(BaseApp):

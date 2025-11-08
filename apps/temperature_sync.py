@@ -1,14 +1,33 @@
+"""TemperatureSync app: synchronize a source temperature sensor to multiple target entities.
+
+Main features:
+- Mirror a numeric temperature sensor to one or more `number` entities or setpoint controls.
+- Validate numeric input and ignore invalid sensor states.
+
+Key configuration keys:
+- input: entity id of the source temperature sensor (required).
+- outputs: list of target entity ids to set (e.g., number.setpoint_*).
+
+Example:
+```yaml
+temperature_sync:
+    module: temperature_sync
+    class: TemperatureSync
+    input: sensor.temperature_outside
+    outputs:
+        - number.setpoint_living
+        - number.setpoint_bedroom
+```
+
+See module docstring and inline examples for usage.
+"""
+
 import appdaemon.plugins.hass.hassapi as hass
 import datetime
 import time
 import re
 import inspect
 
-#
-# TemperatureSync App
-#
-# Args:
-#
 
 
 class TemperatureSync(hass.Hass):
