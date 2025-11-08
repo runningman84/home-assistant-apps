@@ -17,6 +17,10 @@ jobs:
           missing=0
           for f in apps/*.py; do
             name=$(basename "$f" .py)
+            # skip package init
+            if [ "$name" = "__init__" ]; then
+              continue
+            fi
             doc=docs/${name}.md
             if [ ! -f "$doc" ]; then
               echo "Missing doc for $name: expected $doc"

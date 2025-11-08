@@ -29,8 +29,7 @@ alarm_system:
   vacation_control: input_boolean.vacation_mode
   guest_control: input_boolean.guest_mode
   silent_control: input_boolean.silent_mode
-  alarm_volume_control: input_number.xiaomi_alarm_volume
-  info_volume_control: input_number.xiaomi_info_volume
+  # volume controls not directly used by the apps; use notify/tts device configuration instead
   notify_service: script/send_status_report_bob
   notify_title: "Intruder Alert"
 guard_dog:
@@ -42,7 +41,7 @@ guard_dog:
 heat_saver_office:
   module: climate
   class: ClimateControl
-  door_window_sensors:
+  opening_sensors:
     - binary_sensor.door_window_sensor_158d0001111111
   device_trackers:
     - device_tracker.android_phone_bob
@@ -59,7 +58,7 @@ heat_saver_office:
 heat_saver_livingroom:
   module: climate
   class: ClimateControl
-  door_window_sensors:
+  opening_sensors:
     - binary_sensor.door_window_sensor_158d0001222222
   device_trackers:
     - device_tracker.android_phone_bob
@@ -69,7 +68,7 @@ heat_saver_livingroom:
   vacation_control: input_boolean.vacation_mode
   guest_control: input_boolean.guest_mode
   min_temperature: 18
-  wait_duration: 300
+  motion_duration: 300
   home_temperature_control: input_number.climate_home_temperature
   away_temperature_control: input_number.climate_away_temperature
   vacation_temperature_control: input_number.climate_vacation_temperature
@@ -99,7 +98,7 @@ light_saver_office:
     - light.hue_office_1
     - light.hue_office_2
   off_scene: scene.office_light_off
-  evening_scene: scene.office_light_evening
+  on_scene: scene.office_light_evening
   night_scene: scene.office_light_night
   vacation_control: input_boolean.vacation_mode
   guest_control: input_boolean.guest_mode
