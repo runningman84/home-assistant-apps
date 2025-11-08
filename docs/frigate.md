@@ -1,26 +1,44 @@
 # FrigateControl
 
-Description
------------
-FrigateControl coordinates Frigate cameras and related switches. It can auto-enable cameras/switches on motion/openings/alarm states and turn them off otherwise.
+FrigateControl app: coordinate Frigate camera service with Home Assistant states and triggers.
 
-Minimal apps.yaml snippet
--------------------------
+Main features:
+- Turn on/off Frigate camera recording/switches based on motion, openings, alarm and schedule.
+- Provide grouped operations for cameras and switches and options to auto-enable/disable on certain events.
+
+Key configuration keys:
+- frigate_switches: list of switch entity ids to enable/disable Frigate recording or related integrations.
+- frigate_cameras: list of camera entity ids to monitor/control.
+- auto_turn_on_motion/opening/alarm: booleans to enable auto-start for corresponding events.
+
+See module docstring and inline examples for usage.
+
+## Minimal apps.yaml snippet
+
 ```yaml
-frigate_control:
+frigate:
   module: frigate
   class: FrigateControl
-  frigate_cameras:
-    - camera.front_yard
-  frigate_switches:
-    - switch.frigate_power
-  auto_turn_on_motion: true
+  # options:
+  # auto_turn_off_alarm: True
+  # auto_turn_off_motion: True
+  # auto_turn_off_opening: True
+  # auto_turn_on_alarm: True
+  # auto_turn_on_motion: True
+  # auto_turn_on_opening: True
+  # frigate_cameras: []
+  # frigate_switches: []
 ```
 
-Options
--------
-- `frigate_cameras` (list) — default: []
-- `frigate_switches` (list) — default: []
-- `auto_turn_on_motion`, `auto_turn_on_opening`, `auto_turn_on_alarm` (bool) — defaults: True
-- `auto_turn_off_motion`, `auto_turn_off_opening`, `auto_turn_off_alarm` (bool) — defaults: True
-- Common `BaseApp` options apply (motion/opening sensors, alarm_control_panel)
+## Options
+
+| key | default |
+| --- | --- |
+| `auto_turn_off_alarm` | `True` |
+| `auto_turn_off_motion` | `True` |
+| `auto_turn_off_opening` | `True` |
+| `auto_turn_on_alarm` | `True` |
+| `auto_turn_on_motion` | `True` |
+| `auto_turn_on_opening` | `True` |
+| `frigate_cameras` | `[]` |
+| `frigate_switches` | `[]` |

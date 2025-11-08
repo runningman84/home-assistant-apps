@@ -1,26 +1,33 @@
 # GuardDog
 
-Description
------------
-GuardDog plays a ringtone on a Xiaomi gateway when a configured motion sensor triggers while the alarm is armed. It's a small helper for audible alerts.
+GuardDog app: simple guard logic that reacts to motion and door sensors and triggers alarms/ringtones.
 
-Minimal apps.yaml snippet
--------------------------
+Main features:
+- Watch a motion sensor and a door sensor and trigger a ringtone when motion is detected while alarm is armed.
+
+Key configuration keys:
+- motion_sensor: entity_id of motion sensor (required).
+- door_sensor: entity_id of a door sensor (required).
+- gw_mac: gateway MAC for Xiaomi Aqara ringtone service (required for the example service call).
+
+See module docstring and inline examples for usage.
+
+## Minimal apps.yaml snippet
+
 ```yaml
-guard_dog:
+dog:
   module: dog
   class: GuardDog
-  motion_sensor: binary_sensor.motion_backyard
-  door_sensor: binary_sensor.door_back
-  gw_mac: 'AA:BB:CC:DD:EE:FF'
+  # options:
+  # door_sensor: <value>
+  # gw_mac: <value>
+  # motion_sensor: <value>
 ```
 
-Options
--------
-- `motion_sensor` (entity) — required
-- `door_sensor` (entity) — required
-- `gw_mac` (str) — gateway MAC for Xiaomi ringtone call, required
+## Options
 
-Notes
------
-This app expects those keys to be present (it uses direct `self.args[...]` indexing).
+| key | default |
+| --- | --- |
+| `door_sensor` | `None` |
+| `gw_mac` | `None` |
+| `motion_sensor` | `None` |

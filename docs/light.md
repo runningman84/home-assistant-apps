@@ -1,42 +1,69 @@
 # LightControl
 
-Description
------------
-LightControl automates lights using motion sensors, illumination sensors and sun elevation. Supports night/evening scenes, guest and vacation modes, and can suppress automatic changes during alarm states.
+LightControl app: automatically control lights based on motion, trackers, illumination and schedules.
 
-Minimal apps.yaml snippet
--------------------------
+Main features:
+- Automatically turn lights on/off based on motion sensors, illumination sensors, sun elevation and presence.
+- Support scenes for night/on/off transitions and optional fluxer/pattern control.
+- Respect vacation, guest, and alarm states to avoid unintended changes.
+- Configurable auto_turn_on / auto_turn_off toggles and thresholds for illumination/elevation.
+
+Key configuration keys:
+- lights: list of light entity ids to control (required).
+- motion_sensors: list of binary_sensor ids used to detect motion.
+- illumination_sensors: optional sensors used to measure ambient light (min/max thresholds).
+- night_scene/on_scene/off_scene: optional scene entity ids used for night or normal activations.
+- auto_turn_on / auto_turn_off: booleans to enable/disable automatic actions.
+- min_illumination, max_illumination, min_elevation: numeric thresholds.
+
+Example:
 ```yaml
 light_control:
-  module: light
-  class: LightControl
-  lights:
-    - light.hall
-    - light.kitchen
-  motion_sensors:
-    - binary_sensor.motion_hall
-    - binary_sensor.motion_kitchen
-  night_scene: scene.night_lights
-  min_illumination: 20
-  motion_duration: 180
+    module: light
+    class: LightControl
+    lights:
+        - light.hall
+        - light.kitchen
+    motion_sensors:
+        - binary_sensor.motion_hall
+        - binary_sensor.motion_kitchen
+    night_scene: scene.night_lights
+    min_illumination: 20
+    motion_duration: 180
 ```
 
-Notes
------
-- See `apps/light.py` for advanced options such as fluxer support and multiple illumination sensors.
+See module docstring and inline examples for usage.
 
-Options
--------
-Common (from `base.py`):
+## Minimal apps.yaml snippet
 
- - `motion_sensors` (list) — default: []
- - `device_trackers` (list) — default: []
- - `vacation_control`, `guest_control` (entities) — defaults: None
+```yaml
+light:
+  module: light
+  class: LightControl
+  # options:
+  # auto_turn_off: True
+  # auto_turn_on: True
+  # fluxer_switch: <value>
+  # lights: []
+  # max_illumination: 150
+  # min_elevation: 10
+  # min_illumination: 25
+  # night_scene: <value>
+  # off_scene: <value>
+  # on_scene: <value>
+```
 
-Light-specific:
+## Options
 
- - `lights` (list) — default: []
- - `night_scene`, `on_scene`, `off_scene` (entity/scene) — defaults: None
- - `min_illumination` (int) — default: 25
- - `min_elevation` (int) — default: 10
- - `motion_duration` (int seconds) — default: 180
+| key | default |
+| --- | --- |
+| `auto_turn_off` | `True` |
+| `auto_turn_on` | `True` |
+| `fluxer_switch` | `None` |
+| `lights` | `[]` |
+| `max_illumination` | `150` |
+| `min_elevation` | `10` |
+| `min_illumination` | `25` |
+| `night_scene` | `None` |
+| `off_scene` | `None` |
+| `on_scene` | `None` |

@@ -1,30 +1,50 @@
 # LightSwitch
 
-Description
------------
-LightSwitch maps physical remote events to light actions (brightness up/down, toggle, color temp). Useful for integrating button remotes.
+LightSwitch app: translate remote button events into light control actions.
 
-Minimal apps.yaml snippet
--------------------------
+Main features:
+- Listen to remote button events and translate clicks/holds into brightness, color or group toggles.
+- Provide mappings for left/right groups and default lights.
+
+Key configuration keys:
+- remotes: list of remote entity ids emitting events (required).
+- lights, lights_left, lights_right: lists of lights to operate for different button mappings.
+
+Example:
+```yaml
+light_switch:
+    module: light_switch
+    class: LightSwitch
+    remotes:
+        - remote.left
+    lights:
+        - light.living
+    lights_left:
+        - light.left_corner
+    lights_right:
+        - light.right_corner
+```
+
+See module docstring and inline examples for usage.
+
+## Minimal apps.yaml snippet
+
 ```yaml
 light_switch:
   module: light_switch
   class: LightSwitch
-  remotes:
-    - remote.left
-  lights:
-    - light.living
-  lights_left:
-    - light.left_corner
-  lights_right:
-    - light.right_corner
+  # options:
+  # lights: []
+  # lights_left: []
+  # lights_right: []
+  # remotes: []
 ```
 
-Options
--------
-- `remotes` (list) — default: []
-- `lights`, `lights_left`, `lights_right` (lists) — defaults: []
+## Options
 
-Notes
------
-Events are expected to supply an `event_type` attribute used for mapping actions.
+| key | default |
+| --- | --- |
+| `lights` | `[]` |
+| `lights_left` | `[]` |
+| `lights_right` | `[]` |
+| `remotes` | `[]` |

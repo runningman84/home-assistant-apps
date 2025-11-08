@@ -1,27 +1,25 @@
 # TelegramBotEventListener
 
-Description
------------
-TelegramBotEventListener listens for Telegram commands and callbacks and can be used to control the alarm, request snapshots or receive notifications.
+Event listener for Telegram bot events.
 
-Minimal apps.yaml snippet
--------------------------
+## Minimal apps.yaml snippet
+
 ```yaml
-telegram_bot:
+telegram:
   module: telegram
   class: TelegramBotEventListener
-  user_ids:
-    - 123456789
-  alarm_control_panel: alarm_control_panel.ha_alarm
+  # options:
+  # alarm_control_panel: alarm_control_panel.ha_alarm
+  # alarm_pin: <value>
+  # guest_control: <value>
+  # user_ids: []
 ```
 
-Notes
------
-- See `apps/telegram.py` for the list of available commands, callbacks and callback payload structure.
+## Options
 
-Options
--------
- - `alarm_control_panel` (entity) — default: `alarm_control_panel.ha_alarm`
- - `guest_control` (entity) — default: None
- - `alarm_pin` (str) — default: None
- - `user_ids` (list) — default: []
+| key | default |
+| --- | --- |
+| `alarm_control_panel` | `alarm_control_panel.ha_alarm` |
+| `alarm_pin` | `None` |
+| `guest_control` | `None` |
+| `user_ids` | `[]` |

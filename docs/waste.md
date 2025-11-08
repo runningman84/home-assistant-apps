@@ -1,25 +1,41 @@
 # WasteReminder
 
-Description
------------
-Notifies about upcoming waste collection using Awtrix and optional TTS. Driven by a calendar sensor that contains event message and start_time attributes.
+WasteReminder app: notify occupants about upcoming waste collection events.
 
-Minimal apps.yaml snippet
--------------------------
+Main features:
+- Read a calendar-style sensor for upcoming waste collection and notify via AWTRIX/TTS when collection is today/tomorrow.
+- Throttles TTS messages to avoid repeated announcements and respects night windows.
+
+Key configuration keys:
+- waste_calendar: entity id of a calendar or sensor that exposes 'start_time' and 'message' attributes.
+- awtrix_prefixes: optional list of AWTRIX prefixes to notify via MQTT.
+
+Example:
 ```yaml
 waste_reminder:
-  module: waste
-  class: WasteReminder
-  waste_calender: sensor.waste_calendar
-  awtrix_prefixes:
-    - "awtrix/home"
+    module: waste
+    class: WasteReminder
+    waste_calendar: sensor.waste_calendar
+    awtrix_prefixes:
+        - "awtrix/home"
 ```
 
-Options
--------
-- `waste_calender` (entity) — default: None
-- `awtrix_prefixes` (list) — default: []
+See module docstring and inline examples for usage.
 
-Notes
------
-The app looks for `start_time` and `message` attributes on the configured calendar sensor.
+## Minimal apps.yaml snippet
+
+```yaml
+waste:
+  module: waste
+  class: WasteReminder
+  # options:
+  # awtrix_prefixes: []
+  # waste_calendar: <value>
+```
+
+## Options
+
+| key | default |
+| --- | --- |
+| `awtrix_prefixes` | `[]` |
+| `waste_calendar` | `None` |

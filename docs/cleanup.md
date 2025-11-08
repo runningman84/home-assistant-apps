@@ -1,24 +1,35 @@
 # Cleanup
 
-Description
------------
-Triggers a cleanup service when a sensor reports too many files or total bytes above configured limits. Useful for camera/image storage pruning.
+Cleanup app: performs file or resource cleanup based on configured sensors and thresholds.
 
-Minimal apps.yaml snippet
--------------------------
+Main features:
+- Trigger cleanup service calls when a monitored sensor exceeds configured thresholds (file count, bytes).
+- Minimal configuration, intended to call an existing cleanup script or service.
+
+Key configuration keys:
+- service: service to call to perform cleanup (e.g., script.cleanup_files).
+- sensor: sensor entity that reports 'number_of_files' and 'bytes' as attributes.
+
+See module docstring and inline examples for usage.
+
+## Minimal apps.yaml snippet
+
 ```yaml
 cleanup:
   module: cleanup
   class: Cleanup
-  sensor: sensor.camera_storage
-  limit_number_of_files: 200
-  limit_number_bytes: 50000000
-  service: script.cleanup_camera
+  # options:
+  # limit_number_bytes: 10000000
+  # limit_number_of_files: 100
+  # sensor: <value>
+  # service: <value>
 ```
 
-Options
--------
-- `limit_number_of_files` (int) — default: 100
-- `limit_number_bytes` (int) — default: 10000000
-- `service` (str) — cleanup service to call, default: None
-- `sensor` (entity) — entity to monitor, default: None
+## Options
+
+| key | default |
+| --- | --- |
+| `limit_number_bytes` | `10000000` |
+| `limit_number_of_files` | `100` |
+| `sensor` | `None` |
+| `service` | `None` |

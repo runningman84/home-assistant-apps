@@ -1,17 +1,19 @@
 # HelloWorld
 
-Description
------------
-A trivial example app that logs messages on initialization. Useful as a minimal template when creating new AppDaemon apps.
+HelloWorld app: simple example app that logs startup messages.
 
-Minimal apps.yaml snippet
--------------------------
+Main features:
+- Minimal example that demonstrates the AppDaemon lifecycle and logging.
+
+This file is intentionally simple and used as a template for new apps.
+
+See module docstring and inline examples for usage.
+
+## Minimal apps.yaml snippet
+
 ```yaml
 hello:
   module: hello
   class: HelloWorld
+  # options:
 ```
-
-Options
--------
-- None required — this is a minimal example.

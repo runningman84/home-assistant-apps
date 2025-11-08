@@ -1,25 +1,38 @@
 # AwtrixControl
 
-Description
------------
-AwtrixControl publishes MQTT commands to Awtrix displays based on motion, presence and alarm states. It uses configured MQTT topic prefixes to address devices.
+AwtrixControl app: send notifications and power commands to AWTRIX devices via MQTT.
 
-Minimal apps.yaml snippet
--------------------------
+Main features:
+- Publish power/sleep/notification payloads to configured AWTRIX MQTT prefixes.
+- React to motion, device tracker and alarm events to power on/off or display messages.
+
+Key configuration keys:
+- awtrix_prefixes: list of MQTT topic prefixes for your AWTRIX devices (required).
+
+Example:
+```yaml
+awtrix:
+    module: awtrix
+    class: AwtrixControl
+    awtrix_prefixes:
+        - "awtrix/device1"
+        - "awtrix/device2"
+```
+
+See module docstring and inline examples for usage.
+
+## Minimal apps.yaml snippet
+
 ```yaml
 awtrix:
   module: awtrix
   class: AwtrixControl
-  awtrix_prefixes:
-    - "awtrix/device1"
-    - "awtrix/device2"
+  # options:
+  # awtrix_prefixes: []
 ```
 
-Options
--------
-- `awtrix_prefixes` (list) — default: []
-- Common `BaseApp` options apply (motion_sensors, device_trackers, alarm_control_panel, etc.)
+## Options
 
-Notes
------
-This app sends MQTT payloads under each configured prefix (e.g. `PREFIX/power`, `PREFIX/sleep`).
+| key | default |
+| --- | --- |
+| `awtrix_prefixes` | `[]` |

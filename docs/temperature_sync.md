@@ -1,26 +1,42 @@
 # TemperatureSync
 
-Description
------------
-Copies a single input temperature sensor to one or more numeric outputs. Useful to sync setpoints or sensor values across entities.
+TemperatureSync app: synchronize a source temperature sensor to multiple target entities.
 
-Minimal apps.yaml snippet
--------------------------
+Main features:
+- Mirror a numeric temperature sensor to one or more `number` entities or setpoint controls.
+- Validate numeric input and ignore invalid sensor states.
+
+Key configuration keys:
+- input: entity id of the source temperature sensor (required).
+- outputs: list of target entity ids to set (e.g., number.setpoint_*).
+
+Example:
+```yaml
+temperature_sync:
+    module: temperature_sync
+    class: TemperatureSync
+    input: sensor.temperature_outside
+    outputs:
+        - number.setpoint_living
+        - number.setpoint_bedroom
+```
+
+See module docstring and inline examples for usage.
+
+## Minimal apps.yaml snippet
+
 ```yaml
 temperature_sync:
   module: temperature_sync
   class: TemperatureSync
-  input: sensor.temperature_outside
-  outputs:
-    - number.setpoint_living
-    - number.setpoint_bedroom
+  # options:
+  # input: <value>
+  # outputs: []
 ```
 
-Options
--------
-- `input` (entity) — required
-- `outputs` (list) — default: []
+## Options
 
-Notes
------
-The app listens to the input sensor and periodically syncs values to configured outputs.
+| key | default |
+| --- | --- |
+| `input` | `None` |
+| `outputs` | `[]` |
