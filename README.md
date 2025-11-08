@@ -1,6 +1,7 @@
+
 # home-assistant-apps
 
-[![Docs](https://img.shields.io/badge/docs-available-blue)](https://github.com/runningman84/home-assistant-apps/tree/master/docs)
+[![Docs (source)](https://img.shields.io/badge/docs-available-blue)](docs/index.md) [![Docs site](https://img.shields.io/badge/mkdocs-site-blueviolet)](docs/index.md)
 
 Home Assistant utility apps implemented for AppDaemon. These small apps provide common automations such as an alarm control, climate helpers, light and power automation, camera integration and more.
 
@@ -62,7 +63,7 @@ Error modes:
 
 ## Included apps
 
-See `APPS.md` for a short per-app reference and configuration examples.
+See `docs/index.md` for a short per-app reference and configuration examples.
 
 ## Configuration examples
 
