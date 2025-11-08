@@ -9,7 +9,24 @@ This repository contains the AppDaemon application code. A sample configuration 
 - Sample config: `sample_config/apps.yaml`
 - Minimal example: `sample_config/scripts_minimal.yaml`
 - App source: `apps/` directory
- - Apps reference: `APPS.md`
+ - App docs (per-app):
+	 - `docs/index.md` — docs index
+	 - `docs/alarm.md` — AlarmControl
+	 - `docs/climate.md` — ClimateControl
+	 - `docs/light.md` — LightControl
+	 - `docs/light_switch.md` — LightSwitch
+	 - `docs/power.md` — PowerControl
+	 - `docs/camera.md` — CameraImageScanner
+	 - `docs/frigate.md` — FrigateControl
+	 - `docs/awtrix.md` — AwtrixControl
+	 - `docs/telegram.md` — TelegramBotEventListener
+	 - `docs/temperature_sync.md` — TemperatureSync
+	 - `docs/waste.md` — WasteReminder
+	 - `docs/weather.md` — WeatherWarning
+	 - `docs/cleanup.md` — Cleanup
+	 - `docs/dog.md` — GuardDog
+	 - `docs/heat.md` — HeatSaver
+	 - `docs/hello.md` — HelloWorld
 
 ## Requirements
 
