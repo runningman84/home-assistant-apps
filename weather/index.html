@@ -544,15 +544,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
@@ -565,15 +556,6 @@
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       Options
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -702,15 +684,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
@@ -723,15 +696,6 @@
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       Options
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -757,24 +721,55 @@
 
 
 <h1 id="weatherwarning">WeatherWarning</h1>
-<h2 id="description">Description</h2>
-<p>Monitors weather warning sensors and publishes alerts to Awtrix and optionally TTS, with rate limiting per warning.</p>
-<h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
+<p>WeatherWarning app: announce or notify about weather warnings based on configured sensors.</p>
+<p>Main features:
+- Monitor current and future weather-warning sensors and announce warnings via AWTRIX/TTS.
+- Track per-warning TTS counters to avoid repeated vocal alerts and respect night windows.</p>
+<p>Key configuration keys:
+- current_warn_sensor, future_warn_sensor: sensors exposing warning_count and per-warning attributes (name, headline, description, start, end).
+- awtrix_prefixes: optional list of AWTRIX MQTT prefixes to publish notifications to.</p>
+<p>Example:</p>
 <pre><code class="language-yaml">weather_warning:
+    module: weather
+    class: WeatherWarning
+    current_warn_sensor: sensor.dwd_current
+    future_warn_sensor: sensor.dwd_future
+    awtrix_prefixes:
+        - &quot;awtrix/home&quot;
+</code></pre>
+<p>See module docstring and inline examples for usage.</p>
+<h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
+<pre><code class="language-yaml">weather:
   module: weather
   class: WeatherWarning
-  current_warn_sensor: sensor.dwd_current
-  future_warn_sensor: sensor.dwd_future
-  awtrix_prefixes:
-    - &quot;awtrix/home&quot;
+  # options:
+  # awtrix_prefixes: []
+  # current_warn_sensor: &lt;value&gt;
+  # future_warn_sensor: &lt;value&gt;
 </code></pre>
 <h2 id="options">Options</h2>
-<ul>
-<li><code>current_warn_sensor</code>, <code>future_warn_sensor</code> (entities) — defaults: None</li>
-<li><code>awtrix_prefixes</code> (list) — default: []</li>
-</ul>
-<h2 id="notes">Notes</h2>
-<p>The app reads warning attributes like <code>warning_count</code>, <code>warning_1_headline</code>, <code>warning_1_description</code>, etc.</p>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>awtrix_prefixes</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>current_warn_sensor</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>future_warn_sensor</code></td>
+<td><code>None</code></td>
+</tr>
+</tbody>
+</table>
 
 
 

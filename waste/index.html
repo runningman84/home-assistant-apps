@@ -522,15 +522,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
@@ -543,15 +534,6 @@
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       Options
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -702,15 +684,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
@@ -723,15 +696,6 @@
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       Options
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -757,23 +721,49 @@
 
 
 <h1 id="wastereminder">WasteReminder</h1>
-<h2 id="description">Description</h2>
-<p>Notifies about upcoming waste collection using Awtrix and optional TTS. Driven by a calendar sensor that contains event message and start_time attributes.</p>
-<h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
+<p>WasteReminder app: notify occupants about upcoming waste collection events.</p>
+<p>Main features:
+- Read a calendar-style sensor for upcoming waste collection and notify via AWTRIX/TTS when collection is today/tomorrow.
+- Throttles TTS messages to avoid repeated announcements and respects night windows.</p>
+<p>Key configuration keys:
+- waste_calendar: entity id of a calendar or sensor that exposes 'start_time' and 'message' attributes.
+- awtrix_prefixes: optional list of AWTRIX prefixes to notify via MQTT.</p>
+<p>Example:</p>
 <pre><code class="language-yaml">waste_reminder:
+    module: waste
+    class: WasteReminder
+    waste_calendar: sensor.waste_calendar
+    awtrix_prefixes:
+        - &quot;awtrix/home&quot;
+</code></pre>
+<p>See module docstring and inline examples for usage.</p>
+<h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
+<pre><code class="language-yaml">waste:
   module: waste
   class: WasteReminder
-  waste_calender: sensor.waste_calendar
-  awtrix_prefixes:
-    - &quot;awtrix/home&quot;
+  # options:
+  # awtrix_prefixes: []
+  # waste_calendar: &lt;value&gt;
 </code></pre>
 <h2 id="options">Options</h2>
-<ul>
-<li><code>waste_calender</code> (entity) — default: None</li>
-<li><code>awtrix_prefixes</code> (list) — default: []</li>
-</ul>
-<h2 id="notes">Notes</h2>
-<p>The app looks for <code>start_time</code> and <code>message</code> attributes on the configured calendar sensor.</p>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>awtrix_prefixes</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>waste_calendar</code></td>
+<td><code>None</code></td>
+</tr>
+</tbody>
+</table>
 
 
 

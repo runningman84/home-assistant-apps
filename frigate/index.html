@@ -434,15 +434,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
@@ -693,15 +684,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
@@ -739,26 +721,72 @@
 
 
 <h1 id="frigatecontrol">FrigateControl</h1>
-<h2 id="description">Description</h2>
-<p>FrigateControl coordinates Frigate cameras and related switches. It can auto-enable cameras/switches on motion/openings/alarm states and turn them off otherwise.</p>
+<p>FrigateControl app: coordinate Frigate camera service with Home Assistant states and triggers.</p>
+<p>Main features:
+- Turn on/off Frigate camera recording/switches based on motion, openings, alarm and schedule.
+- Provide grouped operations for cameras and switches and options to auto-enable/disable on certain events.</p>
+<p>Key configuration keys:
+- frigate_switches: list of switch entity ids to enable/disable Frigate recording or related integrations.
+- frigate_cameras: list of camera entity ids to monitor/control.
+- auto_turn_on_motion/opening/alarm: booleans to enable auto-start for corresponding events.</p>
+<p>See module docstring and inline examples for usage.</p>
 <h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
-<pre><code class="language-yaml">frigate_control:
+<pre><code class="language-yaml">frigate:
   module: frigate
   class: FrigateControl
-  frigate_cameras:
-    - camera.front_yard
-  frigate_switches:
-    - switch.frigate_power
-  auto_turn_on_motion: true
+  # options:
+  # auto_turn_off_alarm: True
+  # auto_turn_off_motion: True
+  # auto_turn_off_opening: True
+  # auto_turn_on_alarm: True
+  # auto_turn_on_motion: True
+  # auto_turn_on_opening: True
+  # frigate_cameras: []
+  # frigate_switches: []
 </code></pre>
 <h2 id="options">Options</h2>
-<ul>
-<li><code>frigate_cameras</code> (list) — default: []</li>
-<li><code>frigate_switches</code> (list) — default: []</li>
-<li><code>auto_turn_on_motion</code>, <code>auto_turn_on_opening</code>, <code>auto_turn_on_alarm</code> (bool) — defaults: True</li>
-<li><code>auto_turn_off_motion</code>, <code>auto_turn_off_opening</code>, <code>auto_turn_off_alarm</code> (bool) — defaults: True</li>
-<li>Common <code>BaseApp</code> options apply (motion/opening sensors, alarm_control_panel)</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>auto_turn_off_alarm</code></td>
+<td><code>True</code></td>
+</tr>
+<tr>
+<td><code>auto_turn_off_motion</code></td>
+<td><code>True</code></td>
+</tr>
+<tr>
+<td><code>auto_turn_off_opening</code></td>
+<td><code>True</code></td>
+</tr>
+<tr>
+<td><code>auto_turn_on_alarm</code></td>
+<td><code>True</code></td>
+</tr>
+<tr>
+<td><code>auto_turn_on_motion</code></td>
+<td><code>True</code></td>
+</tr>
+<tr>
+<td><code>auto_turn_on_opening</code></td>
+<td><code>True</code></td>
+</tr>
+<tr>
+<td><code>frigate_cameras</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>frigate_switches</code></td>
+<td><code>[]</code></td>
+</tr>
+</tbody>
+</table>
 
 
 

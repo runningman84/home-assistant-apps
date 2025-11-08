@@ -324,27 +324,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -702,27 +684,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -757,41 +721,241 @@
 
 
 <h1 id="climatecontrol">ClimateControl</h1>
-<h2 id="description">Description</h2>
-<p>ClimateControl manages thermostats based on open windows/doors, presence, guest/vacation modes and environmental sensors (AQI, VOC, CO2). It can also react to motion and override temperatures for short periods.</p>
-<h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
+<p>ClimateControl app: manage HVAC devices and temperature modes based on presence, schedules and sensors.</p>
+<p>Main features:
+- Maintain different target temperatures for home, away, night, motion and vacation modes.
+- Integrate external/outside temperature sensors to adjust behavior and enable summer mode.
+- Respect opening sensors (windows/doors) and air-quality sensors (AQI, CO₂, VOC) to inhibit heating/cooling.
+- React to motion, guest or vacation controls and to manual adjustments from GUI controls.
+- Support per-mode control entities to change target temperatures via UI.</p>
+<p>Key configuration keys (extracted from implementation):
+- climate_controls: list of climate entity ids to manage (required).
+- external_temperature_sensor / outside_temperature_sensor: optional sensor ids used for logic.
+- home_temperature, night_temperature, away_temperature, vacation_temperature, motion_temperature: numeric targets.
+- *_temperature_control: optional entity ids (number/select) used to change the respective temperature via UI.
+- aqi_sensor, voc_sensor, co2_sensor: optional air-quality sensors and thresholds (aqi_threshold, voc_threshold, co2_threshold).
+- summer_temperature_threshold, summer_temperature: thresholds and target for summer behavior.
+- night_start, night_end, night_start_workday, night_end_workday: configurable night windows (in BaseApp defaults).</p>
+<p>Example:</p>
 <pre><code class="language-yaml">climate_control:
+    module: climate
+    class: ClimateControl
+    climate_controls:
+        - climate.living_room
+    opening_sensors:
+        - binary_sensor.window_living
+    home_temperature: 21
+    away_temperature: 17
+    vacation_temperature: 15
+</code></pre>
+<p>See module docstring and inline examples for usage.</p>
+<h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
+<pre><code class="language-yaml">climate:
   module: climate
   class: ClimateControl
-  climate_controls:
-    - climate.living_room
-  door_window_sensors:
-    - binary_sensor.window_living
-  home_temperature: 21
-  away_temperature: 17
-  vacation_temperature: 15
+  # options:
+  # aqi_sensor: &lt;value&gt;
+  # aqi_threshold: 50
+  # away_hvac_mode: heat
+  # away_temperature: 18
+  # away_temperature_control: &lt;value&gt;
+  # climate_controls: []
+  # co2_sensor: &lt;value&gt;
+  # co2_threshold: 800
+  # external_temperature_sensor: &lt;value&gt;
+  # fan_overheat_temperature: 22
+  # home_hvac_mode: heat
+  # home_temperature: 20
+  # home_temperature_control: &lt;value&gt;
+  # humidity_sensor: &lt;value&gt;
+  # max_overheat_allowance: 0.5
+  # min_temperature: 7
+  # motion_duration: 300
+  # motion_hvac_mode: heat
+  # motion_temperature: 21
+  # motion_temperature_control: &lt;value&gt;
+  # night_hvac_mode: heat
+  # night_temperature: 18
+  # night_temperature_control: &lt;value&gt;
+  # offset_temperature: 0
+  # open_hvac_mode: off
+  # open_temperature: 16
+  # open_temperature_control: &lt;value&gt;
+  # outside_temperature_sensor: &lt;value&gt;
+  # summer_hvac_mode: off
+  # summer_temperature: 7
+  # summer_temperature_control: &lt;value&gt;
+  # summer_temperature_threshold: 15
+  # summer_temperature_threshold_tomorrow: &lt;complex&gt;
+  # vacation_hvac_mode: heat
+  # vacation_temperature: 16
+  # vacation_temperature_control: &lt;value&gt;
+  # voc_sensor: &lt;value&gt;
+  # voc_threshold: 220
 </code></pre>
-<h2 id="notes">Notes</h2>
-<ul>
-<li>See <code>apps/climate.py</code> for advanced options like AQI thresholds, offsets and motion-based temperature control.</li>
-</ul>
 <h2 id="options">Options</h2>
-<p>Common (from <code>base.py</code>):</p>
-<ul>
-<li><code>device_trackers</code> (list) — default: []</li>
-<li><code>vacation_control</code> (entity) — default: None</li>
-<li><code>guest_control</code> (entity) — default: None</li>
-</ul>
-<p>Climate-specific:</p>
-<ul>
-<li><code>climate_controls</code> (list) — default: []</li>
-<li><code>external_temperature_sensor</code> (entity) — default: None</li>
-<li><code>aqi_sensor</code>, <code>voc_sensor</code>, <code>co2_sensor</code> (entities) — defaults: None</li>
-<li><code>home_temperature</code> (float) — default: 20</li>
-<li><code>away_temperature</code> (float) — default: 18</li>
-<li><code>vacation_temperature</code> (float) — default: 16</li>
-<li><code>motion_temperature</code> (float) — default: 21</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>aqi_sensor</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>aqi_threshold</code></td>
+<td><code>50</code></td>
+</tr>
+<tr>
+<td><code>away_hvac_mode</code></td>
+<td><code>heat</code></td>
+</tr>
+<tr>
+<td><code>away_temperature</code></td>
+<td><code>18</code></td>
+</tr>
+<tr>
+<td><code>away_temperature_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>climate_controls</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>co2_sensor</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>co2_threshold</code></td>
+<td><code>800</code></td>
+</tr>
+<tr>
+<td><code>external_temperature_sensor</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>fan_overheat_temperature</code></td>
+<td><code>22</code></td>
+</tr>
+<tr>
+<td><code>home_hvac_mode</code></td>
+<td><code>heat</code></td>
+</tr>
+<tr>
+<td><code>home_temperature</code></td>
+<td><code>20</code></td>
+</tr>
+<tr>
+<td><code>home_temperature_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>humidity_sensor</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>max_overheat_allowance</code></td>
+<td><code>0.5</code></td>
+</tr>
+<tr>
+<td><code>min_temperature</code></td>
+<td><code>7</code></td>
+</tr>
+<tr>
+<td><code>motion_duration</code></td>
+<td><code>300</code></td>
+</tr>
+<tr>
+<td><code>motion_hvac_mode</code></td>
+<td><code>heat</code></td>
+</tr>
+<tr>
+<td><code>motion_temperature</code></td>
+<td><code>21</code></td>
+</tr>
+<tr>
+<td><code>motion_temperature_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>night_hvac_mode</code></td>
+<td><code>heat</code></td>
+</tr>
+<tr>
+<td><code>night_temperature</code></td>
+<td><code>18</code></td>
+</tr>
+<tr>
+<td><code>night_temperature_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>offset_temperature</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>open_hvac_mode</code></td>
+<td><code>off</code></td>
+</tr>
+<tr>
+<td><code>open_temperature</code></td>
+<td><code>16</code></td>
+</tr>
+<tr>
+<td><code>open_temperature_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>outside_temperature_sensor</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>summer_hvac_mode</code></td>
+<td><code>off</code></td>
+</tr>
+<tr>
+<td><code>summer_temperature</code></td>
+<td><code>7</code></td>
+</tr>
+<tr>
+<td><code>summer_temperature_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>summer_temperature_threshold</code></td>
+<td><code>15</code></td>
+</tr>
+<tr>
+<td><code>summer_temperature_threshold_tomorrow</code></td>
+<td><code>&lt;complex&gt;</code></td>
+</tr>
+<tr>
+<td><code>vacation_hvac_mode</code></td>
+<td><code>heat</code></td>
+</tr>
+<tr>
+<td><code>vacation_temperature</code></td>
+<td><code>16</code></td>
+</tr>
+<tr>
+<td><code>vacation_temperature_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>voc_sensor</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>voc_threshold</code></td>
+<td><code>220</code></td>
+</tr>
+</tbody>
+</table>
 
 
 

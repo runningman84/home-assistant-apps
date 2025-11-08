@@ -390,27 +390,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -702,27 +684,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -757,36 +721,65 @@
 
 
 <h1 id="powercontrol">PowerControl</h1>
-<h2 id="description">Description</h2>
-<p>PowerControl toggles power outlets and switches based on motion, presence and schedules. It helps reduce standby power use by turning off unused devices.</p>
-<h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
+<p>PowerControl app: manage power outlets and devices based on motion, presence and schedules.</p>
+<p>Main features:
+- Automatically switch power controls on/off based on motion, presence, media playback and schedules.
+- Respect vacation and alarm states to avoid turning devices on when not desired.
+- Track and count switches and provide simple group operations.</p>
+<p>Key configuration keys:
+- power_controls: list of switch entity ids to control (required).
+- motion_sensors, device_trackers: optional lists to decide when to turn devices on/off.
+- tracker_duration: how long after last device_tracker presence to consider someone present.
+- night_start: time to perform nightly power actions (configure via BaseApp defaults).</p>
+<p>Example:</p>
 <pre><code class="language-yaml">power_control:
+    module: power
+    class: PowerControl
+    power_controls:
+        - switch.tv_living_room
+        - switch.receiver
+    motion_sensors:
+        - binary_sensor.motion_living
+    tracker_duration: 60
+</code></pre>
+<p>See module docstring and inline examples for usage.</p>
+<h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
+<pre><code class="language-yaml">power:
   module: power
   class: PowerControl
-  power_controls:
-    - switch.tv_living_room
-    - switch.receiver
-  motion_sensors:
-    - binary_sensor.motion_living
-  tracker_duration: 60
+  # options:
+  # night_force_off: True
+  # power_controls: []
+  # standby_power_limit: 0
+  # standby_sensors: []
 </code></pre>
-<h2 id="notes">Notes</h2>
-<ul>
-<li>See <code>apps/power.py</code> for options like standby sensors and night_force_off.</li>
-</ul>
 <h2 id="options">Options</h2>
-<p>Common (from <code>base.py</code>):</p>
-<ul>
-<li><code>motion_sensors</code>, <code>device_trackers</code> (lists) — defaults: []</li>
-<li><code>vacation_control</code>, <code>guest_control</code> (entities) — defaults: None</li>
-</ul>
-<p>Power-specific:</p>
-<ul>
-<li><code>power_controls</code> (list) — default: []</li>
-<li><code>standby_sensors</code> (list) — default: []</li>
-<li><code>night_force_off</code> (bool) — default: True</li>
-<li><code>tracker_duration</code>, <code>motion_duration</code> (seconds) — defaults: see <code>base.py</code></li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>night_force_off</code></td>
+<td><code>True</code></td>
+</tr>
+<tr>
+<td><code>power_controls</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>standby_power_limit</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>standby_sensors</code></td>
+<td><code>[]</code></td>
+</tr>
+</tbody>
+</table>
 
 
 

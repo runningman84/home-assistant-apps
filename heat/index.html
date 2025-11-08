@@ -610,15 +610,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
@@ -693,15 +684,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
@@ -739,26 +721,200 @@
 
 
 <h1 id="heatsaver">HeatSaver</h1>
-<h2 id="description">Description</h2>
-<p>HeatSaver (and similar heat-related helpers) manage climate devices to avoid overheating, stop heating when windows open or nobody is home, and apply guest/vacation profiles.</p>
+<p>HeatSaver App</p>
+<p>Args:</p>
 <h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
-<pre><code class="language-yaml">heat_saver:
+<pre><code class="language-yaml">heat:
   module: heat
   class: HeatSaver
-  climate_controls:
-    - climate.floor_heating
-  door_window_sensors:
-    - binary_sensor.window_kitchen
-  home_temperature: 20
+  # options:
+  # away_hvac_mode: heat
+  # away_temperature: 18
+  # away_temperature_control: &lt;value&gt;
+  # climate_controls: []
+  # device_trackers: []
+  # door_window_sensors: []
+  # external_temperature_sensor: &lt;value&gt;
+  # guest_control: &lt;value&gt;
+  # home_hvac_mode: heat
+  # home_temperature: 20
+  # home_temperature_control: &lt;value&gt;
+  # max_overheat_allowance: 1
+  # motion_duration: 300
+  # motion_hvac_mode: heat
+  # motion_sensors: []
+  # motion_temperature: 21
+  # motion_temperature_control: &lt;value&gt;
+  # night_after_time: 22:00:00
+  # night_before_time: 07:00:00
+  # night_hvac_mode: heat
+  # night_temperature: 18
+  # night_temperature_control: &lt;value&gt;
+  # offset_temperature: 0
+  # open_hvac_mode: off
+  # open_temperature: 16
+  # open_temperature_control: &lt;value&gt;
+  # overheat_hvac_mode: off
+  # summer_hvac_mode: off
+  # summer_temperature: &lt;value&gt;
+  # summer_temperature_control: &lt;value&gt;
+  # vacation_control: &lt;value&gt;
+  # vacation_hvac_mode: heat
+  # vacation_temperature: 16
+  # vacation_temperature_control: &lt;value&gt;
+  # wait_duration: 15
 </code></pre>
 <h2 id="options">Options</h2>
-<ul>
-<li><code>door_window_sensors</code> (list) — default: []</li>
-<li><code>device_trackers</code>, <code>motion_sensors</code>, <code>climate_controls</code> — defaults: []</li>
-<li><code>vacation_control</code>, <code>guest_control</code> — defaults: None</li>
-<li><code>wait_duration</code> (seconds) — default: 15</li>
-<li>Many climate-related options mirror <code>climate.py</code> (home/away/vacation/open temperatures, hvac modes, thresholds)</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>away_hvac_mode</code></td>
+<td><code>heat</code></td>
+</tr>
+<tr>
+<td><code>away_temperature</code></td>
+<td><code>18</code></td>
+</tr>
+<tr>
+<td><code>away_temperature_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>climate_controls</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>device_trackers</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>door_window_sensors</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>external_temperature_sensor</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>guest_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>home_hvac_mode</code></td>
+<td><code>heat</code></td>
+</tr>
+<tr>
+<td><code>home_temperature</code></td>
+<td><code>20</code></td>
+</tr>
+<tr>
+<td><code>home_temperature_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>max_overheat_allowance</code></td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>motion_duration</code></td>
+<td><code>300</code></td>
+</tr>
+<tr>
+<td><code>motion_hvac_mode</code></td>
+<td><code>heat</code></td>
+</tr>
+<tr>
+<td><code>motion_sensors</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>motion_temperature</code></td>
+<td><code>21</code></td>
+</tr>
+<tr>
+<td><code>motion_temperature_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>night_after_time</code></td>
+<td><code>22:00:00</code></td>
+</tr>
+<tr>
+<td><code>night_before_time</code></td>
+<td><code>07:00:00</code></td>
+</tr>
+<tr>
+<td><code>night_hvac_mode</code></td>
+<td><code>heat</code></td>
+</tr>
+<tr>
+<td><code>night_temperature</code></td>
+<td><code>18</code></td>
+</tr>
+<tr>
+<td><code>night_temperature_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>offset_temperature</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>open_hvac_mode</code></td>
+<td><code>off</code></td>
+</tr>
+<tr>
+<td><code>open_temperature</code></td>
+<td><code>16</code></td>
+</tr>
+<tr>
+<td><code>open_temperature_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>overheat_hvac_mode</code></td>
+<td><code>off</code></td>
+</tr>
+<tr>
+<td><code>summer_hvac_mode</code></td>
+<td><code>off</code></td>
+</tr>
+<tr>
+<td><code>summer_temperature</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>summer_temperature_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>vacation_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>vacation_hvac_mode</code></td>
+<td><code>heat</code></td>
+</tr>
+<tr>
+<td><code>vacation_temperature</code></td>
+<td><code>16</code></td>
+</tr>
+<tr>
+<td><code>vacation_temperature_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>wait_duration</code></td>
+<td><code>15</code></td>
+</tr>
+</tbody>
+</table>
 
 
 

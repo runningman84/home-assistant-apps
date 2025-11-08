@@ -566,15 +566,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
@@ -693,15 +684,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
@@ -739,24 +721,51 @@
 
 
 <h1 id="cleanup">Cleanup</h1>
-<h2 id="description">Description</h2>
-<p>Triggers a cleanup service when a sensor reports too many files or total bytes above configured limits. Useful for camera/image storage pruning.</p>
+<p>Cleanup app: performs file or resource cleanup based on configured sensors and thresholds.</p>
+<p>Main features:
+- Trigger cleanup service calls when a monitored sensor exceeds configured thresholds (file count, bytes).
+- Minimal configuration, intended to call an existing cleanup script or service.</p>
+<p>Key configuration keys:
+- service: service to call to perform cleanup (e.g., script.cleanup_files).
+- sensor: sensor entity that reports 'number_of_files' and 'bytes' as attributes.</p>
+<p>See module docstring and inline examples for usage.</p>
 <h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
 <pre><code class="language-yaml">cleanup:
   module: cleanup
   class: Cleanup
-  sensor: sensor.camera_storage
-  limit_number_of_files: 200
-  limit_number_bytes: 50000000
-  service: script.cleanup_camera
+  # options:
+  # limit_number_bytes: 10000000
+  # limit_number_of_files: 100
+  # sensor: &lt;value&gt;
+  # service: &lt;value&gt;
 </code></pre>
 <h2 id="options">Options</h2>
-<ul>
-<li><code>limit_number_of_files</code> (int) — default: 100</li>
-<li><code>limit_number_bytes</code> (int) — default: 10000000</li>
-<li><code>service</code> (str) — cleanup service to call, default: None</li>
-<li><code>sensor</code> (entity) — entity to monitor, default: None</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>limit_number_bytes</code></td>
+<td><code>10000000</code></td>
+</tr>
+<tr>
+<td><code>limit_number_of_files</code></td>
+<td><code>100</code></td>
+</tr>
+<tr>
+<td><code>sensor</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>service</code></td>
+<td><code>None</code></td>
+</tr>
+</tbody>
+</table>
 
 
 

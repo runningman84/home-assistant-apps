@@ -346,27 +346,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -702,27 +684,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -757,41 +721,101 @@
 
 
 <h1 id="lightcontrol">LightControl</h1>
-<h2 id="description">Description</h2>
-<p>LightControl automates lights using motion sensors, illumination sensors and sun elevation. Supports night/evening scenes, guest and vacation modes, and can suppress automatic changes during alarm states.</p>
-<h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
+<p>LightControl app: automatically control lights based on motion, trackers, illumination and schedules.</p>
+<p>Main features:
+- Automatically turn lights on/off based on motion sensors, illumination sensors, sun elevation and presence.
+- Support scenes for night/on/off transitions and optional fluxer/pattern control.
+- Respect vacation, guest, and alarm states to avoid unintended changes.
+- Configurable auto_turn_on / auto_turn_off toggles and thresholds for illumination/elevation.</p>
+<p>Key configuration keys:
+- lights: list of light entity ids to control (required).
+- motion_sensors: list of binary_sensor ids used to detect motion.
+- illumination_sensors: optional sensors used to measure ambient light (min/max thresholds).
+- night_scene/on_scene/off_scene: optional scene entity ids used for night or normal activations.
+- auto_turn_on / auto_turn_off: booleans to enable/disable automatic actions.
+- min_illumination, max_illumination, min_elevation: numeric thresholds.</p>
+<p>Example:</p>
 <pre><code class="language-yaml">light_control:
+    module: light
+    class: LightControl
+    lights:
+        - light.hall
+        - light.kitchen
+    motion_sensors:
+        - binary_sensor.motion_hall
+        - binary_sensor.motion_kitchen
+    night_scene: scene.night_lights
+    min_illumination: 20
+    motion_duration: 180
+</code></pre>
+<p>See module docstring and inline examples for usage.</p>
+<h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
+<pre><code class="language-yaml">light:
   module: light
   class: LightControl
-  lights:
-    - light.hall
-    - light.kitchen
-  motion_sensors:
-    - binary_sensor.motion_hall
-    - binary_sensor.motion_kitchen
-  night_scene: scene.night_lights
-  min_illumination: 20
-  motion_duration: 180
+  # options:
+  # auto_turn_off: True
+  # auto_turn_on: True
+  # fluxer_switch: &lt;value&gt;
+  # lights: []
+  # max_illumination: 150
+  # min_elevation: 10
+  # min_illumination: 25
+  # night_scene: &lt;value&gt;
+  # off_scene: &lt;value&gt;
+  # on_scene: &lt;value&gt;
 </code></pre>
-<h2 id="notes">Notes</h2>
-<ul>
-<li>See <code>apps/light.py</code> for advanced options such as fluxer support and multiple illumination sensors.</li>
-</ul>
 <h2 id="options">Options</h2>
-<p>Common (from <code>base.py</code>):</p>
-<ul>
-<li><code>motion_sensors</code> (list) — default: []</li>
-<li><code>device_trackers</code> (list) — default: []</li>
-<li><code>vacation_control</code>, <code>guest_control</code> (entities) — defaults: None</li>
-</ul>
-<p>Light-specific:</p>
-<ul>
-<li><code>lights</code> (list) — default: []</li>
-<li><code>night_scene</code>, <code>on_scene</code>, <code>off_scene</code> (entity/scene) — defaults: None</li>
-<li><code>min_illumination</code> (int) — default: 25</li>
-<li><code>min_elevation</code> (int) — default: 10</li>
-<li><code>motion_duration</code> (int seconds) — default: 180</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>auto_turn_off</code></td>
+<td><code>True</code></td>
+</tr>
+<tr>
+<td><code>auto_turn_on</code></td>
+<td><code>True</code></td>
+</tr>
+<tr>
+<td><code>fluxer_switch</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>lights</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>max_illumination</code></td>
+<td><code>150</code></td>
+</tr>
+<tr>
+<td><code>min_elevation</code></td>
+<td><code>10</code></td>
+</tr>
+<tr>
+<td><code>min_illumination</code></td>
+<td><code>25</code></td>
+</tr>
+<tr>
+<td><code>night_scene</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>off_scene</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>on_scene</code></td>
+<td><code>None</code></td>
+</tr>
+</tbody>
+</table>
 
 
 

@@ -302,27 +302,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -702,27 +684,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -757,51 +721,133 @@
 
 
 <h1 id="alarmcontrol">AlarmControl</h1>
-<h2 id="description">Description</h2>
-<p>AlarmControl automatically arms/disarms and monitors sensors (doors, motion, water, fire). It supports notifications, camera snapshots and multiple arming modes (home/away/night/vacation).</p>
+<p>AlarmControl app: manage sensors, arming/disarming, sirens and notifications for the alarm system.</p>
+<p>Main features:
+- Handle arming/disarming (manual, schedules, device-tracker based auto-arm).
+- Map and categorize sensors (door, window, motion, tamper, environmental) into alarm types.
+- Trigger notifications via configured notify services (TTS, telegram, awtrix, scripts).
+- Integrate camera references for snapshots or event context.
+- Support thresholds for fire/water and automatic reactions.</p>
+<p>Key configuration keys (most optional with sensible defaults):
+- alarm_control_panel: entity_id of the alarm_control_panel to monitor/control.
+- device_trackers: list of device_tracker entity ids used for auto-arm/disarm.
+- armed_home_binary_sensors, armed_away_binary_sensors, armed_night_binary_sensors: lists of sensor ids used per arming mode.
+- notify_service: service to call for notifications (e.g., script.notify_all).
+- cameras: optional list of camera entity ids to include in alerts.
+- fire_temperature_threshold: numeric threshold for fire temperature sensor.</p>
+<p>Example <code>apps.yaml</code> snippet :</p>
+<pre><code class="language-yaml">alarm:
+    module: alarm
+    class: AlarmControl
+    alarm_control_panel: alarm_control_panel.ha_alarm
+    device_trackers:
+        - device_tracker.phone_anna
+        - device_tracker.phone_bob
+    armed_away_binary_sensors:
+        - binary_sensor.front_door
+        - binary_sensor.back_door
+    notify_service: script.notify_all
+    cameras:
+        - camera.front_door
+</code></pre>
+<p>See module docstring and inline examples for usage.</p>
 <h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
 <pre><code class="language-yaml">alarm:
   module: alarm
   class: AlarmControl
-  alarm_control_panel: alarm_control_panel.ha_alarm
-  device_trackers:
-    - device_tracker.phone_anna
-    - device_tracker.phone_bob
-  armed_away_binary_sensors:
-    - binary_sensor.front_door
-    - binary_sensor.back_door
-  notify_service: script.notify_all
-  cameras:
-    - camera.front_door
+  # options:
+  # alarm_arm_night_after_time: 23:15:00
+  # alarm_arm_night_before_time: 06:00:00
+  # alarm_control_buttons: []
+  # alarm_lights: []
+  # alarm_pin: &lt;value&gt;
+  # armed_away_binary_sensors: []
+  # armed_away_image_processing_sensors: []
+  # armed_home_binary_sensors: []
+  # armed_home_image_processing_sensors: []
+  # burglar_siren_switches: []
+  # fire_binary_sensors: []
+  # fire_siren_switches: []
+  # fire_temperature_sensors: []
+  # fire_temperature_threshold: 50
+  # language: english
+  # water_binary_sensors: []
 </code></pre>
-<h2 id="notes">Notes</h2>
-<ul>
-<li>See <code>apps/alarm.py</code> for the full list of options and defaults.</li>
-<li>Use <code>APPS.md</code> or <code>README.md</code> for pointers to other helpers (Telegram, Awtrix).</li>
-</ul>
 <h2 id="options">Options</h2>
-<p>Common (from <code>base.py</code>):</p>
-<ul>
-<li><code>opening_sensors</code> (list) — default: []</li>
-<li><code>motion_sensors</code> (list) — default: []</li>
-<li><code>device_trackers</code> (list) — default: []</li>
-<li><code>vacation_control</code> (entity) — default: None</li>
-<li><code>guest_control</code> (entity) — default: None</li>
-<li><code>notify_service</code> (service/entity) — default: None</li>
-</ul>
-<p>Alarm-specific:</p>
-<ul>
-<li><code>armed_home_binary_sensors</code> (list) — default: []</li>
-<li><code>armed_away_binary_sensors</code> (list) — default: []</li>
-<li><code>armed_home_image_processing_sensors</code> (list) — default: []</li>
-<li><code>armed_away_image_processing_sensors</code> (list) — default: []</li>
-<li><code>water_binary_sensors</code> (list) — default: []</li>
-<li><code>fire_binary_sensors</code> (list) — default: []</li>
-<li><code>alarm_control_buttons</code> (list) — default: []</li>
-<li><code>alarm_lights</code> (list) — default: []</li>
-<li><code>camera_snapshot_path</code> (str) — default: <code>/tmp</code></li>
-<li><code>camera_snapshot_regex</code> (str) — default: <code>camera_.*\d+_\d+\.jpg</code></li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>alarm_arm_night_after_time</code></td>
+<td><code>23:15:00</code></td>
+</tr>
+<tr>
+<td><code>alarm_arm_night_before_time</code></td>
+<td><code>06:00:00</code></td>
+</tr>
+<tr>
+<td><code>alarm_control_buttons</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>alarm_lights</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>alarm_pin</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>armed_away_binary_sensors</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>armed_away_image_processing_sensors</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>armed_home_binary_sensors</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>armed_home_image_processing_sensors</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>burglar_siren_switches</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>fire_binary_sensors</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>fire_siren_switches</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>fire_temperature_sensors</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>fire_temperature_threshold</code></td>
+<td><code>50</code></td>
+</tr>
+<tr>
+<td><code>language</code></td>
+<td><code>english</code></td>
+</tr>
+<tr>
+<td><code>water_binary_sensors</code></td>
+<td><code>[]</code></td>
+</tr>
+</tbody>
+</table>
 
 
 

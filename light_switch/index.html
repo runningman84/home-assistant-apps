@@ -368,15 +368,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
@@ -389,15 +380,6 @@
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       Options
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -702,15 +684,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
@@ -723,15 +696,6 @@
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       Options
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -757,28 +721,64 @@
 
 
 <h1 id="lightswitch">LightSwitch</h1>
-<h2 id="description">Description</h2>
-<p>LightSwitch maps physical remote events to light actions (brightness up/down, toggle, color temp). Useful for integrating button remotes.</p>
+<p>LightSwitch app: translate remote button events into light control actions.</p>
+<p>Main features:
+- Listen to remote button events and translate clicks/holds into brightness, color or group toggles.
+- Provide mappings for left/right groups and default lights.</p>
+<p>Key configuration keys:
+- remotes: list of remote entity ids emitting events (required).
+- lights, lights_left, lights_right: lists of lights to operate for different button mappings.</p>
+<p>Example:</p>
+<pre><code class="language-yaml">light_switch:
+    module: light_switch
+    class: LightSwitch
+    remotes:
+        - remote.left
+    lights:
+        - light.living
+    lights_left:
+        - light.left_corner
+    lights_right:
+        - light.right_corner
+</code></pre>
+<p>See module docstring and inline examples for usage.</p>
 <h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
 <pre><code class="language-yaml">light_switch:
   module: light_switch
   class: LightSwitch
-  remotes:
-    - remote.left
-  lights:
-    - light.living
-  lights_left:
-    - light.left_corner
-  lights_right:
-    - light.right_corner
+  # options:
+  # lights: []
+  # lights_left: []
+  # lights_right: []
+  # remotes: []
 </code></pre>
 <h2 id="options">Options</h2>
-<ul>
-<li><code>remotes</code> (list) — default: []</li>
-<li><code>lights</code>, <code>lights_left</code>, <code>lights_right</code> (lists) — defaults: []</li>
-</ul>
-<h2 id="notes">Notes</h2>
-<p>Events are expected to supply an <code>event_type</code> attribute used for mapping actions.</p>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lights</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>lights_left</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>lights_right</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>remotes</code></td>
+<td><code>[]</code></td>
+</tr>
+</tbody>
+</table>
 
 
 

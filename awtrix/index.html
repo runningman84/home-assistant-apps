@@ -456,15 +456,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
@@ -477,15 +468,6 @@
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       Options
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -702,15 +684,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
@@ -723,15 +696,6 @@
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       Options
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -757,23 +721,43 @@
 
 
 <h1 id="awtrixcontrol">AwtrixControl</h1>
-<h2 id="description">Description</h2>
-<p>AwtrixControl publishes MQTT commands to Awtrix displays based on motion, presence and alarm states. It uses configured MQTT topic prefixes to address devices.</p>
+<p>AwtrixControl app: send notifications and power commands to AWTRIX devices via MQTT.</p>
+<p>Main features:
+- Publish power/sleep/notification payloads to configured AWTRIX MQTT prefixes.
+- React to motion, device tracker and alarm events to power on/off or display messages.</p>
+<p>Key configuration keys:
+- awtrix_prefixes: list of MQTT topic prefixes for your AWTRIX devices (required).</p>
+<p>Example:</p>
+<pre><code class="language-yaml">awtrix:
+    module: awtrix
+    class: AwtrixControl
+    awtrix_prefixes:
+        - &quot;awtrix/device1&quot;
+        - &quot;awtrix/device2&quot;
+</code></pre>
+<p>See module docstring and inline examples for usage.</p>
 <h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
 <pre><code class="language-yaml">awtrix:
   module: awtrix
   class: AwtrixControl
-  awtrix_prefixes:
-    - &quot;awtrix/device1&quot;
-    - &quot;awtrix/device2&quot;
+  # options:
+  # awtrix_prefixes: []
 </code></pre>
 <h2 id="options">Options</h2>
-<ul>
-<li><code>awtrix_prefixes</code> (list) — default: []</li>
-<li>Common <code>BaseApp</code> options apply (motion_sensors, device_trackers, alarm_control_panel, etc.)</li>
-</ul>
-<h2 id="notes">Notes</h2>
-<p>This app sends MQTT payloads under each configured prefix (e.g. <code>PREFIX/power</code>, <code>PREFIX/sleep</code>).</p>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>awtrix_prefixes</code></td>
+<td><code>[]</code></td>
+</tr>
+</tbody>
+</table>
 
 
 

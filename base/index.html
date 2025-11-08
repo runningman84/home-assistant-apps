@@ -620,27 +620,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
+  <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
-      Description
+      Minimal apps.yaml snippet
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#options-common-for-many-apps" class="md-nav__link">
+  <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
-      Options (common for many apps)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
+      Options
     </span>
   </a>
   
@@ -666,33 +657,209 @@
 
 
 <h1 id="baseapp">BaseApp</h1>
-<h2 id="description">Description</h2>
-<p><code>BaseApp</code> provides common utilities used by most apps: sensor lists, time/window helpers, notification helpers, internal/external change recording, and shared timeouts.</p>
-<h2 id="options-common-for-many-apps">Options (common for many apps)</h2>
-<ul>
-<li><code>opening_sensors</code> (list) — default: []</li>
-<li><code>motion_sensors</code> (list) — default: []</li>
-<li><code>illumination_sensors</code> (list) — default: []</li>
-<li><code>awake_sensors</code> (list) — default: []</li>
-<li><code>device_trackers</code> (list) — default: []</li>
-<li><code>media_players</code> (list) — default: []</li>
-<li><code>vacation_control</code> (entity) — default: None</li>
-<li><code>guest_control</code> (entity) — default: None</li>
-<li><code>alarm_control_panel</code> (entity) — default: None</li>
-<li><code>opening_timeout</code> (seconds) — default: 30</li>
-<li><code>motion_timeout</code> (seconds) — default: 300</li>
-<li><code>tracker_timeout</code> (seconds) — default: 60</li>
-<li><code>vacation_timeout</code> (seconds) — default: 60</li>
-<li><code>awake_timeout</code> (seconds) — default: 900</li>
-<li><code>notify_service</code> (service) — default: None</li>
-<li><code>telegram_user_ids</code> (list) — default: []</li>
-<li><code>awtrix_prefixes</code> (list) — default: []</li>
-<li><code>language</code> (str) — default: "english"</li>
-<li><code>night_start</code>, <code>night_end</code> (time) — defaults: "23:15:00" / "06:30:00"</li>
-<li><code>external_change_timeout</code>, <code>internal_change_timeout</code> (seconds) — defaults: 7200, 10</li>
-</ul>
-<h2 id="notes">Notes</h2>
-<p>This file isn't intended to be added directly to <code>apps.yaml</code> — it's the shared base class. Many apps accept the options listed above; check each app's doc for specifics.</p>
+<p>Base utilities for AppDaemon apps providing common helpers and configuration defaults.</p>
+<p>This module provides a <code>BaseApp</code> class that other app modules inherit from. It
+centralizes common configuration keys, sensible defaults, and utility helpers used
+across multiple apps (e.g., motion/opening counters, night window helpers, TTS/awtrix helpers).</p>
+<p>Common args provided by <code>BaseApp</code> (all optional unless noted):
+- opening_sensors, motion_sensors, illumination_sensors, device_trackers
+- vacation_control, guest_control, alarm_control_panel
+- night_start, night_end, night_start_workday, night_end_workday
+- notify_service, awtrix_prefixes, tts_devices
+- external_change_timeout, internal_change_timeout</p>
+<p>See module docstrings and inline examples for canonical usage and common options used across apps.</p>
+<h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
+<pre><code class="language-yaml">base:
+  module: base
+  class: BaseApp
+  # options:
+  # alarm_control_panel: &lt;value&gt;
+  # alexa_media_devices: []
+  # alexa_monkeys: []
+  # awake_sensors: []
+  # awake_timeout: &lt;complex&gt;
+  # awtrix_prefixes: []
+  # device_trackers: []
+  # external_change_timeout: &lt;complex&gt;
+  # guest_control: &lt;value&gt;
+  # holiday_sensor: &lt;value&gt;
+  # illumination_sensors: []
+  # internal_change_timeout: 10
+  # language: english
+  # lights: []
+  # media_players: []
+  # motion_sensors: []
+  # motion_timeout: &lt;complex&gt;
+  # night_end: 08:30:00
+  # night_end_workday: 06:30:00
+  # night_start: 23:15:00
+  # night_start_workday: 22:15:00
+  # notify_service: &lt;value&gt;
+  # notify_targets: []
+  # notify_title: AlarmSystem triggered, possible {}
+  # opening_sensors: []
+  # opening_timeout: 30
+  # silent_control: &lt;value&gt;
+  # telegram_user_ids: []
+  # tracker_timeout: 60
+  # tts_devices: []
+  # vacation_control: &lt;value&gt;
+  # vacation_timeout: 60
+  # vacuum_cleaners: []
+  # workday_sensor: &lt;value&gt;
+  # workday_tomorrow_sensor: &lt;value&gt;
+</code></pre>
+<h2 id="options">Options</h2>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>alarm_control_panel</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>alexa_media_devices</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>alexa_monkeys</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>awake_sensors</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>awake_timeout</code></td>
+<td><code>&lt;complex&gt;</code></td>
+</tr>
+<tr>
+<td><code>awtrix_prefixes</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>device_trackers</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>external_change_timeout</code></td>
+<td><code>&lt;complex&gt;</code></td>
+</tr>
+<tr>
+<td><code>guest_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>holiday_sensor</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>illumination_sensors</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>internal_change_timeout</code></td>
+<td><code>10</code></td>
+</tr>
+<tr>
+<td><code>language</code></td>
+<td><code>english</code></td>
+</tr>
+<tr>
+<td><code>lights</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>media_players</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>motion_sensors</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>motion_timeout</code></td>
+<td><code>&lt;complex&gt;</code></td>
+</tr>
+<tr>
+<td><code>night_end</code></td>
+<td><code>08:30:00</code></td>
+</tr>
+<tr>
+<td><code>night_end_workday</code></td>
+<td><code>06:30:00</code></td>
+</tr>
+<tr>
+<td><code>night_start</code></td>
+<td><code>23:15:00</code></td>
+</tr>
+<tr>
+<td><code>night_start_workday</code></td>
+<td><code>22:15:00</code></td>
+</tr>
+<tr>
+<td><code>notify_service</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>notify_targets</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>notify_title</code></td>
+<td><code>AlarmSystem triggered, possible {}</code></td>
+</tr>
+<tr>
+<td><code>opening_sensors</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>opening_timeout</code></td>
+<td><code>30</code></td>
+</tr>
+<tr>
+<td><code>silent_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>telegram_user_ids</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>tracker_timeout</code></td>
+<td><code>60</code></td>
+</tr>
+<tr>
+<td><code>tts_devices</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>vacation_control</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>vacation_timeout</code></td>
+<td><code>60</code></td>
+</tr>
+<tr>
+<td><code>vacuum_cleaners</code></td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>workday_sensor</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>workday_tomorrow_sensor</code></td>
+<td><code>None</code></td>
+</tr>
+</tbody>
+</table>
 
 
 

@@ -500,15 +500,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
@@ -521,15 +512,6 @@
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       Options
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -702,15 +684,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#description" class="md-nav__link">
-    <span class="md-ellipsis">
-      Description
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#minimal-appsyaml-snippet" class="md-nav__link">
     <span class="md-ellipsis">
       Minimal apps.yaml snippet
@@ -723,15 +696,6 @@
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       Options
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Notes
     </span>
   </a>
   
@@ -757,24 +721,50 @@
 
 
 <h1 id="temperaturesync">TemperatureSync</h1>
-<h2 id="description">Description</h2>
-<p>Copies a single input temperature sensor to one or more numeric outputs. Useful to sync setpoints or sensor values across entities.</p>
+<p>TemperatureSync app: synchronize a source temperature sensor to multiple target entities.</p>
+<p>Main features:
+- Mirror a numeric temperature sensor to one or more <code>number</code> entities or setpoint controls.
+- Validate numeric input and ignore invalid sensor states.</p>
+<p>Key configuration keys:
+- input: entity id of the source temperature sensor (required).
+- outputs: list of target entity ids to set (e.g., number.setpoint_*).</p>
+<p>Example:</p>
+<pre><code class="language-yaml">temperature_sync:
+    module: temperature_sync
+    class: TemperatureSync
+    input: sensor.temperature_outside
+    outputs:
+        - number.setpoint_living
+        - number.setpoint_bedroom
+</code></pre>
+<p>See module docstring and inline examples for usage.</p>
 <h2 id="minimal-appsyaml-snippet">Minimal apps.yaml snippet</h2>
 <pre><code class="language-yaml">temperature_sync:
   module: temperature_sync
   class: TemperatureSync
-  input: sensor.temperature_outside
-  outputs:
-    - number.setpoint_living
-    - number.setpoint_bedroom
+  # options:
+  # input: &lt;value&gt;
+  # outputs: []
 </code></pre>
 <h2 id="options">Options</h2>
-<ul>
-<li><code>input</code> (entity) — required</li>
-<li><code>outputs</code> (list) — default: []</li>
-</ul>
-<h2 id="notes">Notes</h2>
-<p>The app listens to the input sensor and periodically syncs values to configured outputs.</p>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>input</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>outputs</code></td>
+<td><code>[]</code></td>
+</tr>
+</tbody>
+</table>
 
 
 
