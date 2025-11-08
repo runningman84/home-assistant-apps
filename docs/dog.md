@@ -1,16 +1,10 @@
 # GuardDog
 
-GuardDog app: simple guard logic that reacts to motion and door sensors and triggers alarms/ringtones.
+GuardDog app class.
 
-Main features:
-- Watch a motion sensor and a door sensor and trigger a ringtone when motion is detected while alarm is armed.
-
-Key configuration keys:
-- motion_sensor: entity_id of motion sensor (required).
-- door_sensor: entity_id of a door sensor (required).
-- gw_mac: gateway MAC for Xiaomi Aqara ringtone service (required for the example service call).
-
-See module docstring and inline examples for usage.
+Monitors a motion sensor and a door sensor and triggers a ringtone via
+the Xiaomi/Aqara service when motion is detected while the alarm is
+armed and the door sensor is in the expected state.
 
 ## Minimal apps.yaml snippet
 
