@@ -34,17 +34,9 @@ Outputs:
 Error modes:
 - Apps will log errors to AppDaemon logs. Misconfigured entity ids will result in no-op or logged warnings.
 
-## Included apps (overview)
+## Included apps
 
-The `apps/` folder contains the following automations (see individual source files for full option lists):
-
-- `alarm.py` — AlarmControl: arms/disarms automatically based on device trackers and monitors sensors (doors, motion, water, fire). Supports camera snapshots and notifications.
-- `climate.py` — ClimateControl: adjusts thermostats based on open windows/doors, presence and mode (vacation/guest).
-- `light.py` / `light_switch.py` / `hello.py` — LightControl variants: motion-based lighting, night/evening scenes and manual switches.
-- `power.py` — PowerControl: switches devices off based on motion and presence to save energy.
-- `camera.py`, `frigate.py` — Camera helpers and Frigate integration helpers.
-- `telegram.py` — Telegram notification helpers.
-- `waste.py`, `dog.py`, `weather.py`, `temperature_sync.py`, `cleanup.py`, `awtrix.py`, `heat.py` — Misc small helpers and automations; browse the `apps/` folder for details.
+See `APPS.md` for a short per-app reference and configuration examples.
 
 ## Configuration examples
 
