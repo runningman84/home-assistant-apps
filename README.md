@@ -5,31 +5,34 @@
 
 Home Assistant utility apps implemented for AppDaemon. These small apps provide common automations such as an alarm control, climate helpers, light and power automation, camera integration and more.
 
-This repository contains the AppDaemon application code. A sample configuration showing every app and its options is available at `sample_config/apps.yaml` and a minimal example in `sample_config/scripts_minimal.yaml`.
+This repository contains the AppDaemon application code. A sample configuration showing every app and its options is available at [sample_config/apps.yaml](sample_config/apps.yaml) and a minimal example in [sample_config/scripts_minimal.yaml](sample_config/scripts_minimal.yaml).
 
 ## Quick links
 
-- Sample config: `sample_config/apps.yaml`
-- Minimal example: `sample_config/scripts_minimal.yaml`
-- App source: `apps/` directory
  - App docs (per-app):
-	 - `docs/index.md` — docs index
-	 - `docs/alarm.md` — AlarmControl
-	 - `docs/climate.md` — ClimateControl
-	 - `docs/light.md` — LightControl
-	 - `docs/light_switch.md` — LightSwitch
-	 - `docs/power.md` — PowerControl
-	 - `docs/camera.md` — CameraImageScanner
-	 - `docs/frigate.md` — FrigateControl
-	 - `docs/awtrix.md` — AwtrixControl
-	 - `docs/telegram.md` — TelegramBotEventListener
-	 - `docs/temperature_sync.md` — TemperatureSync
-	 - `docs/waste.md` — WasteReminder
-	 - `docs/weather.md` — WeatherWarning
-	 - `docs/cleanup.md` — Cleanup
-	 - `docs/dog.md` — GuardDog
-	 - `docs/heat.md` — HeatSaver
-	 - `docs/hello.md` — HelloWorld
+
+- Sample config: [sample_config/apps.yaml](sample_config/apps.yaml)
+- Minimal example: [sample_config/scripts_minimal.yaml](sample_config/scripts_minimal.yaml)
+- App source: [apps/](apps/)
+
+ - App docs (per-app):
+    - [docs/index.md](docs/index.md) — docs index
+    - [docs/alarm.md](docs/alarm.md) — AlarmControl
+    - [docs/climate.md](docs/climate.md) — ClimateControl
+    - [docs/light.md](docs/light.md) — LightControl
+    - [docs/light_switch.md](docs/light_switch.md) — LightSwitch
+    - [docs/power.md](docs/power.md) — PowerControl
+    - [docs/camera.md](docs/camera.md) — CameraImageScanner
+    - [docs/frigate.md](docs/frigate.md) — FrigateControl
+    - [docs/awtrix.md](docs/awtrix.md) — AwtrixControl
+    - [docs/telegram.md](docs/telegram.md) — TelegramBotEventListener
+    - [docs/temperature_sync.md](docs/temperature_sync.md) — TemperatureSync
+    - [docs/waste.md](docs/waste.md) — WasteReminder
+    - [docs/weather.md](docs/weather.md) — WeatherWarning
+    - [docs/cleanup.md](docs/cleanup.md) — Cleanup
+    - [docs/dog.md](docs/dog.md) — GuardDog
+    - [docs/heat.md](docs/heat.md) — HeatSaver
+    - [docs/hello.md](docs/hello.md) — HelloWorld
 
 	Quick table of contents
 	----------------------
