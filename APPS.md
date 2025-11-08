@@ -13,6 +13,8 @@ See the detailed per-app quick reference pages in `docs/` (examples and options)
 - [`docs/camera.md`](docs/camera.md) — CameraImageScanner
 - [`docs/telegram.md`](docs/telegram.md) — TelegramBotEventListener
 
+Docs index: [`docs/index.md`](docs/index.md)
+
  - `hello.py` — HelloWorld: trivial example app that logs on initialization. Useful as a minimal template.
 
  - `light.py` — LightControl: automatic light control based on motion, illumination, sun elevation, presence, vacation/guest modes and alarm state. Supports scenes, delayed reactions and internal/external change suppression.
