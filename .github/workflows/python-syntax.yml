@@ -1,0 +1,61 @@
+name: Python syntax check
+
+# Make this workflow reusable by other workflows
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_call:
+    inputs:
+      tracked-files-path:
+        description: 'Optional path to a file containing a list of python files to check'
+        required: false
+        type: string
+
+jobs:
+  syntax:
+    name: Check Python syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Find tracked Python files
+        id: find
+        run: |
+          # If caller passed a file path, use that. Otherwise list tracked python files.
+          if [ -n "${{ inputs.tracked-files-path }}" ]; then
+            cp "${{ inputs.tracked-files-path }}" tracked_py_files.txt || true
+          else
+            git ls-files '*.py' > tracked_py_files.txt || true
+          fi
+          echo "file=tracked_py_files.txt" >> $GITHUB_OUTPUT
+
+      - name: Show files
+        run: |
+          echo "Python files to check:"
+          cat tracked_py_files.txt || true
+
+      - name: Check syntax
+        run: |
+          set -euo pipefail
+          if [ ! -s tracked_py_files.txt ]; then
+            echo "No python files found to check.";
+            exit 0;
+          fi
+          errors=0
+          while IFS= read -r file; do
+            echo "Checking $file"
+            python3 -m py_compile "$file" || errors=$((errors+1))
+          done < tracked_py_files.txt
+          if [ "$errors" -ne 0 ]; then
+            echo "Found $errors file(s) with syntax errors"
+            exit 1
+          fi
+          echo "All python files compiled successfully."
