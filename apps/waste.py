@@ -11,21 +11,21 @@ class WasteReminder(BaseApp):
 
         # awtrix devices
         self.__awtrix_prefixes = self.args.get("awtrix_prefixes", [])
-        self._waste_calender = self.args.get("waste_calender", None)
+        self._waste_calendar = self.args.get("waste_calendar", None)
         self._tts_sent_today = 0
         self._tts_sent_tomorrow = 0
 
         # stop power if nobody is home
-        if self._waste_calender is not None:
+        if self._waste_calendar is not None:
             self.listen_state(self.sensor_change_callback,
-                                self._waste_calender)
+                                self._waste_calendar)
 
         # Set start time to now, aligning to the next full 10-minute mark
-        self.run_every(self.perodic_time_callback, "now+15", 60 * 60)
+        self.run_every(self.periodic_time_callback, "now+15", 60 * 60)
 
         self.log("Startup finished")
 
-    def perodic_time_callback(self, kwargs):
+    def periodic_time_callback(self, kwargs):
         self.log(f"{inspect.currentframe().f_code.co_name}")
         self.setup()
 
@@ -39,14 +39,14 @@ class WasteReminder(BaseApp):
         return int((tomorrow - now).total_seconds())
 
     def setup(self):
-        if self._waste_calender is None:
-            self.log(f"Doing nothing waste calender is not defined.")
+        if self._waste_calendar is None:
+            self.log(f"Doing nothing waste calendar is not defined.")
             return
 
-        waste_state = self.get_state(self._waste_calender)
-        waste_message = self.get_state(self._waste_calender, attribute = "message")
-        waste_start_time = self.get_state(self._waste_calender, attribute = "start_time")
-        waste_end_time = self.get_state(self._waste_calender, attribute = "end_time")
+        waste_state = self.get_state(self._waste_calendar)
+        waste_message = self.get_state(self._waste_calendar, attribute = "message")
+        waste_start_time = self.get_state(self._waste_calendar, attribute = "start_time")
+        waste_end_time = self.get_state(self._waste_calendar, attribute = "end_time")
 
         # Ensure waste_start_time is valid before parsing
         if waste_start_time:

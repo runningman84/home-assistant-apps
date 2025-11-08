@@ -22,7 +22,7 @@ class PowerControl(BaseApp):
         # setup sane defaults
         self._power_controls = self.args.get("power_controls", [])
         self._standby_sensors = self.args.get("standby_sensors", [])
-        self._standby_treshhold = None
+        self._standby_threshold = None
         self._night_force_off = self.args.get("night_force_off", True)
 
         # TBD
@@ -51,7 +51,7 @@ class PowerControl(BaseApp):
 
         # stop power each night
         runtime = self.parse_time(self._night_start)
-        self.run_daily(self.perodic_time_callback, runtime)
+        self.run_daily(self.periodic_time_callback, runtime)
 
         # change based on power control
         for power_control in self._power_controls:
@@ -64,13 +64,13 @@ class PowerControl(BaseApp):
 
 
         # Set start time to now, aligning to the next full 10-minute mark
-        self.run_every(self.perodic_time_callback, "now+10", 10 * 60)
+        self.run_every(self.periodic_time_callback, "now+10", 10 * 60)
 
         self.log("Startup finished")
 
-    def count_switches(self, state):
+    def count_switches(self, state = None):
         self.log(f"count switches in state {state}", level = "DEBUG")
-        if state == 'any':
+        if state is None:
             return len(self._power_controls)
 
         count = 0
@@ -105,10 +105,10 @@ class PowerControl(BaseApp):
             return
 
         if(self.count_media_players('playing', ['Spotify', 'JUKE', 'Qobuz', 'AirPlay', 'MC Link', 'Server', 'Net Radio', 'Bluetooth', 'USB', 'Tuner'])):
-            self.log("Doing nothing because media player is plaing music")
+            self.log("Doing nothing because media player is playing music")
             return
 
-        if(self.count_on_motion_sensors() == 0 and self.count_motion_sensors('any') > 0):
+        if(self.count_on_motion_sensors() == 0 and self.count_motion_sensors() > 0):
             self.log(f"Turning off power because of last motion was {self.get_last_motion():.2f} seconds ago")
             self.turn_off_power()
             return
@@ -131,7 +131,7 @@ class PowerControl(BaseApp):
         self.turn_on_power()
 
     def turn_on_power(self):
-        if self.count_switches("any") == self.count_switches("on"):
+        if self.count_switches() == self.count_switches("on"):
             self.log("All switches are already on")
             return
 
@@ -142,7 +142,7 @@ class PowerControl(BaseApp):
         self.record_internal_change()
 
     def turn_off_power(self):
-        if self.count_switches("any") == self.count_switches("off"):
+        if self.count_switches() == self.count_switches("off"):
             self.log("All switches are already off")
             return
 
@@ -152,7 +152,7 @@ class PowerControl(BaseApp):
 
         self.record_internal_change()
 
-    def perodic_time_callback(self, kwargs):
+    def periodic_time_callback(self, kwargs):
         self.log(f"{inspect.currentframe().f_code.co_name}")
 
         self.update_power()

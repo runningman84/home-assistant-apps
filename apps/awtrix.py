@@ -28,13 +28,13 @@ class AwtrixControl(BaseApp):
             self.listen_state(self.sensor_change_callback, self._alarm_control_panel, new="pending")
 
         # Set start time to now, aligning to the next full 10-minute mark
-        self.run_every(self.perodic_time_callback, "now+15", 10 * 60)
+        self.run_every(self.periodic_time_callback, "now+15", 10 * 60)
 
         self.log("Startup finished")
 
 
     def setup(self):
-        self.log(f"Last motion occured {self.get_last_motion():.2f} seconds ago")
+        self.log(f"Last motion occurred {self.get_last_motion():.2f} seconds ago")
 
         if(self.count_on_motion_sensors() > 0):
             self.log(f"Turning on awtrix because motion was detected on {self.count_on_motion_sensors()} sensors")
@@ -54,7 +54,7 @@ class AwtrixControl(BaseApp):
             #self.turn_off()
             return
 
-    def perodic_time_callback(self, kwargs):
+    def periodic_time_callback(self, kwargs):
         self.log(f"{inspect.currentframe().f_code.co_name}")
         self.setup()
 

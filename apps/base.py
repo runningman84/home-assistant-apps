@@ -1,5 +1,5 @@
 import appdaemon.plugins.hass.hassapi as hass
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 import json
 import hashlib
 import inspect
@@ -15,7 +15,8 @@ class BaseApp(hass.Hass):
         self._awake_sensors = self.args.get("awake_sensors", [])
         self._device_trackers = self.args.get("device_trackers", [])
         self._media_players = self.args.get("media_players", [])
-
+        self._vacuum_cleaners = self.args.get("vacuum_cleaners", [])
+        self._lights = self.args.get("lights", [])
         self._vacation_control = self.args.get("vacation_control", None)
         self._guest_control = self.args.get("guest_control", None)
         self._alarm_control_panel = self.args.get("alarm_control_panel", None)
@@ -46,7 +47,12 @@ class BaseApp(hass.Hass):
         }
 
         self._night_start = self.args.get("night_start", "23:15:00")
-        self._night_end = self.args.get("night_end", "06:30:00")
+        self._night_end = self.args.get("night_end", "08:30:00")
+        self._night_start_workday = self.args.get("night_start_workday", "22:15:00")
+        self._night_end_workday = self.args.get("night_end_workday", "06:30:00")
+        self._workday_sensor = self.args.get("workday_sensor", None)
+        self._workday_tomorrow_sensor = self.args.get("workday_tomorrow_sensor", None)
+        self._holiday_sensor = self.args.get("holiday_sensor", None)
 
         self._external_change_timeout = int(self.args.get("external_change_timeout", 3600*2))
         self._internal_change_timeout = int(self.args.get("internal_change_timeout", 10))
@@ -62,6 +68,7 @@ class BaseApp(hass.Hass):
         self.log(f"Got motion timeout {self._motion_timeout}")
         self.log(f"Got device trackers {self._device_trackers}")
         self.log(f"Got tracker timeout {self._tracker_timeout}")
+        self.log(f"Got vacuum cleaners {self._vacuum_cleaners}")
         self.log(f"Got vacation timeout {self._vacation_timeout}")
         self.log(f"Got awake sensors {self._awake_sensors}")
         self.log(f"Got awake timeout {self._awake_timeout}")
@@ -72,6 +79,10 @@ class BaseApp(hass.Hass):
         self.log(f"Got alexa media devices {self._alexa_media_devices}")
         self.log(f"Got alexa voice monkeys {self._alexa_monkeys}")
         self.log(f"Got awtrix prefixes {self._awtrix_prefixes}")
+        self.log(f"Got night start {self._night_start}")
+        self.log(f"Got night end {self._night_end}")
+        self.log(f"Got night start workday {self._night_start_workday}")
+        self.log(f"Got night end workday {self._night_end_workday}")
 
     def log(self, message, level="INFO", *args, **kwargs):
         """Custom log function to ensure UTF-8 output and handle args/kwargs properly."""
@@ -91,8 +102,43 @@ class BaseApp(hass.Hass):
         """Logs a message with the app name"""
         self.log(f"[{self.__class__.__name__}] {message}")
 
+    def is_workday_today(self):
+        if self.is_holiday_today():
+            return False
+        if self._workday_sensor == None:
+            self.log("using workday fallback for today", level = "DEBUG")
+            today = date.today()
+            return today.weekday() < 5  # Monday-Friday are workdays
+        self.log(f"workday today state {self.get_state(self._workday_sensor)}", level = "DEBUG")
+        return self.get_state(self._workday_sensor) == 'on'
+
+    def is_workday_tomorrow(self):
+        if self._workday_tomorrow_sensor == None:
+            self.log("using workday fallback for tomorrow", level = "DEBUG")
+            tomorrow = date.today() + timedelta(days=1)
+            return tomorrow.weekday() < 5  # Returns True for Monday-Friday
+        self.log(f"workday tomorrow state {self.get_state(self._workday_tomorrow_sensor)}", level = "DEBUG")
+        return self.get_state(self._workday_tomorrow_sensor) == 'on'
+
+    def is_holiday_today(self):
+        if self._holiday_sensor == None:
+            return False
+        return self.get_state(self._holiday_sensor) == 'on'
+
+    def get_night_times(self):
+        today_workday = self.is_workday_today()
+        tomorrow_workday = self.is_workday_tomorrow()
+        
+        self.log(f"today_workday {today_workday} tomorrow_workday {tomorrow_workday}", level = "DEBUG")
+
+        night_start = self._night_start_workday if tomorrow_workday else self._night_start
+        night_end = self._night_end_workday if today_workday else self._night_end
+        return night_start, night_end
+
     def is_time_in_night_window(self):
-        return self.now_is_between(self._night_start, self._night_end)
+        night_start, night_end = self.get_night_times()
+        self.log(f"night start {night_start} night end {night_end}", level = "DEBUG")
+        return self.now_is_between(night_start, night_end)
 
     def in_silent_mode(self):
         if self._silent_control is None:
@@ -104,7 +150,8 @@ class BaseApp(hass.Hass):
 
     def get_seconds_until_night_end(self):
         now = datetime.now()
-        night_end_time = datetime.strptime(self._night_end, "%H:%M:%S").time()
+        night_start, night_end = self.get_night_times()
+        night_end_time = datetime.strptime(night_end, "%H:%M:%S").time()
         night_end_datetime = datetime.combine(now.date(), night_end_time)
 
         # If the night end time is earlier in the day than the current time (meaning it belongs to the next day)
@@ -119,8 +166,8 @@ class BaseApp(hass.Hass):
         seconds_left = int((night_end_datetime - now).total_seconds())
         return seconds_left
 
-    def count_opening_sensors(self, state):
-        if state == 'any':
+    def count_opening_sensors(self, state = None):
+        if state is None:
             return len(self._opening_sensors)
 
         count = 0
@@ -137,8 +184,8 @@ class BaseApp(hass.Hass):
     def count_off_opening_sensors(self):
         return self.count_opening_sensors("off")
 
-    def count_motion_sensors(self, state):
-        if state == 'any':
+    def count_motion_sensors(self, state = None):
+        if state is None:
             return len(self._motion_sensors)
 
         count = 0
@@ -303,9 +350,9 @@ class BaseApp(hass.Hass):
         return remaining_time
 
 
-    def count_media_players(self, state, sources=None):
+    def count_media_players(self, state=None, sources=None):
         self.log(f"Count media players in state {state} and sources {sources}", level="DEBUG")
-        if state == 'any':
+        if state is None:
             return len(self._media_players)
 
         if sources is None:
@@ -333,9 +380,32 @@ class BaseApp(hass.Hass):
     def count_off_media_players(self):
         return self.count_media_players("off")
 
-    def count_lights(self, state):
+    def count_vacuum_cleaners(self, state=None):
+        self.log(f"Count vacuum cleaners in state {state}", level="DEBUG")
+        if state is None:
+            return len(self._vacuum_cleaners)
+
+        count = 0
+        for sensor in self._vacuum_cleaners:
+            self.log(f"Vacuum cleaner {sensor} is in state {self.get_state(sensor)}", level="DEBUG")
+            if self.get_state(sensor) == state:
+                count = count + 1
+
+        self.log(f"found {count} vacuum cleaners in state {state}", level = "DEBUG")
+        return count
+
+    def count_cleaning_vacuum_cleaners(self):
+        return self.count_vacuum_cleaners("cleaning")
+
+    def count_docked_vacuum_cleaners(self):
+        return self.count_vacuum_cleaners("docked")
+
+    def count_returning_vacuum_cleaners(self):
+        return self.count_vacuum_cleaners("returning")
+
+    def count_lights(self, state = None):
         self.log(f"count lights in state {state}", level = "DEBUG")
-        if state == 'any':
+        if state is None:
             return len(self._lights)
 
         count = 0
@@ -351,11 +421,11 @@ class BaseApp(hass.Hass):
         return self.count_lights("on")
 
     def count_off_lights(self):
-        return self.count_motion("off")
+        return self.count_lights("off")
 
-    def count_device_trackers(self, state):
+    def count_device_trackers(self, state = None):
         self.log(f"count device trackers in state {state}", level = "DEBUG")
-        if state == 'any':
+        if state is None:
             return len(self._device_trackers)
 
         count = 0
@@ -373,9 +443,9 @@ class BaseApp(hass.Hass):
     def count_not_home_device_trackers(self):
         return self.count_device_trackers("not_home")
 
-    def count_awake_sensors(self, state):
+    def count_awake_sensors(self, state = None):
         self.log(f"count awake sensors in state {state}", level = "DEBUG")
-        if state == 'any':
+        if state is None:
             return len(self._awake_sensors)
 
         count = 0

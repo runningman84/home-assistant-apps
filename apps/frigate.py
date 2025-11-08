@@ -52,7 +52,7 @@ class FrigateControl(BaseApp):
                                 new="off", old="on", duration=self._motion_timeout)
 
         # Set start time to now, aligning to the next full 10-minute mark
-        self.run_every(self.perodic_time_callback, "now+15", 10 * 60)
+        self.run_every(self.periodic_time_callback, "now+15", 10 * 60)
 
         self.log("Startup finished")
 
@@ -64,13 +64,13 @@ class FrigateControl(BaseApp):
             return
 
         if self._auto_turn_on_motion:
-            if(self.count_motion_sensors("on") > 0 and self.count_motion_sensors("any") > 0):
+            if(self.count_motion_sensors("on") > 0 and self.count_motion_sensors() > 0):
                 self.log("Turning on frigate because there is motion")
                 self.turn_on_frigate()
                 return
 
         if self._auto_turn_on_opening:
-            if(self.count_opening_sensors("on") > 0 and self.count_opening_sensors("any") > 0):
+            if(self.count_opening_sensors("on") > 0 and self.count_opening_sensors() > 0):
                 self.log("Turning on frigate because doors or windows are open")
                 self.turn_on_frigate()
                 return
@@ -82,13 +82,13 @@ class FrigateControl(BaseApp):
                 return
 
         if self._auto_turn_off_motion:
-            if(self.count_motion_sensors("off") == self.count_motion_sensors("any") and self.count_motion_sensors("any") > 0):
+            if(self.count_motion_sensors("off") == self.count_motion_sensors() and self.count_motion_sensors() > 0):
                 self.log("Turning off frigate because there is no motion")
                 self.turn_off_frigate()
                 return
 
         if self._auto_turn_off_opening:
-            if(self.count_opening_sensors("off") == self.count_opening_sensors("any") and self.count_opening_sensors("any") > 0):
+            if(self.count_opening_sensors("off") == self.count_opening_sensors() and self.count_opening_sensors() > 0):
                 self.log("Turning off frigate because doors or windows are closed")
                 self.turn_off_frigate()
                 return
@@ -99,7 +99,7 @@ class FrigateControl(BaseApp):
                 self.turn_off_frigate()
                 return
 
-    def perodic_time_callback(self, kwargs):
+    def periodic_time_callback(self, kwargs):
         self.log(f"{inspect.currentframe().f_code.co_name}")
 
         self.setup()
@@ -109,9 +109,9 @@ class FrigateControl(BaseApp):
 
         self.setup()
 
-    def count_switches(self, state):
+    def count_switches(self, state = None):
         self.log(f"Count switches in state {state}", level = "DEBUG")
-        if state == 'any':
+        if state is None:
             return len(self._frigate_switches)
 
         count = 0
@@ -130,11 +130,11 @@ class FrigateControl(BaseApp):
         return self.count_switches("off")
 
     def count_any_switches(self):
-        return self.count_switches("any")
+        return self.count_switches()
 
-    def count_cameras(self, state):
+    def count_cameras(self, state = None):
         self.log(f"Count cameras in state {state}", level = "DEBUG")
-        if state == 'any':
+        if state is None:
             return len(self._frigate_cameras)
 
         count = 0
@@ -153,7 +153,7 @@ class FrigateControl(BaseApp):
         return self.count_cameras("idle")
 
     def count_any_cameras(self):
-        return self.count_cameras("any")
+        return self.count_cameras()
 
     def turn_on_frigate(self):
         self.turn_on_frigate_cameras()

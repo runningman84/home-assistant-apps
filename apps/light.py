@@ -86,7 +86,7 @@ class LightControl(BaseApp):
             self.listen_state(self.flux_change_callback, self._alarm_control_panel)
 
         # Set start time to now, aligning to the next full 10-minute mark
-        self.run_every(self.perodic_time_callback, "now+10", 10 * 60)
+        self.run_every(self.periodic_time_callback, "now+10", 10 * 60)
 
         self.log("Startup finished")
 
@@ -120,7 +120,7 @@ class LightControl(BaseApp):
                 return True
         return False
 
-    def perodic_time_callback(self, kwargs):
+    def periodic_time_callback(self, kwargs):
         self.log(f"{inspect.currentframe().f_code.co_name}")
 
         self.update_lights()
@@ -148,7 +148,7 @@ class LightControl(BaseApp):
             self.turn_off_lights()
             return
 
-        if(self.count_on_motion_sensors() == 0 and self.count_motion_sensors('any') > 0):
+        if(self.count_on_motion_sensors() == 0 and self.count_motion_sensors() > 0):
             self.log(f"Turning off lights because of last motion was {last_change:.2f} seconds ago")
             self.turn_off_lights()
             return
@@ -167,7 +167,7 @@ class LightControl(BaseApp):
             self.log("Doing nothing because alarm is triggered or pending")
             return
 
-        #if(self.count_motion_sensors('any') > 0):
+        #if(self.count_motion_sensors() > 0):
         #    self.log(f"Might turning on lights because of last motion was {last_change} seconds ago")
 
         if(self._min_illumination is not None and self.below_min_illumination()):
@@ -184,7 +184,7 @@ class LightControl(BaseApp):
             return
 
     def turn_on_lights(self):
-        if self.count_lights("any") == self.count_lights("on"):
+        if self.count_lights() == self.count_lights("on"):
             self.log("All lights are already on")
             return
 
@@ -210,7 +210,7 @@ class LightControl(BaseApp):
         self.record_internal_change()
 
     def turn_off_lights(self):
-        if self.count_lights("any") == self.count_lights("off"):
+        if self.count_lights() == self.count_lights("off"):
             self.log("All lights are already off")
             return
 

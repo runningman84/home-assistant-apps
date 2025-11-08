@@ -22,9 +22,9 @@ class TemperatureSync(hass.Hass):
         self.listen_state(self.sensor_change_callback, self._input)
 
         # Set start time to now, aligning to the next full 10-minute mark
-        self.run_every(self.perodic_time_callback, "now+10", 10 * 60)
+        self.run_every(self.periodic_time_callback, "now+10", 10 * 60)
 
-    def perodic_time_callback(self, kwargs):
+    def periodic_time_callback(self, kwargs):
         self.log(f"{inspect.currentframe().f_code.co_name}")
 
         self.sync_temperature()

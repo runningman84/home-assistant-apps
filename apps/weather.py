@@ -9,6 +9,8 @@ class WeatherWarning(BaseApp):
     def initialize(self):
         super().initialize()
 
+        self.log(f"is night window {self.is_time_in_night_window()}", level = "DEBUG")
+
         # awtrix devices
         self.__awtrix_prefixes = self.args.get("awtrix_prefixes", [])
         self._current_warn_sensor = self.args.get("current_warn_sensor", None)
@@ -25,11 +27,11 @@ class WeatherWarning(BaseApp):
                                 self._future_warn_sensor)
 
         # Set start time to now, aligning to the next full 10-minute mark
-        self.run_every(self.perodic_time_callback, "now+15", 60 * 60)
+        self.run_every(self.periodic_time_callback, "now+15", 60 * 60)
 
         self.log("Startup finished")
 
-    def perodic_time_callback(self, kwargs):
+    def periodic_time_callback(self, kwargs):
         self.log(f"{inspect.currentframe().f_code.co_name}")
         self.handle_warnings()
 
