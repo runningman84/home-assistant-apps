@@ -69,7 +69,14 @@ class AwtrixControl(BaseApp):
         This method is invoked on startup and from event callbacks. It checks
         motion, alarm and night windows and triggers `turn_on`/`sleep` as needed.
         """
-        self.log(f"Last motion occurred {self.get_last_motion():.2f} seconds ago")
+        # get_last_motion() may return None when no motion data is available;
+        # avoid formatting None with numeric format specifiers which raises
+        # TypeError. Use a safe representation instead.
+        last_motion = self.get_last_motion()
+        if last_motion is None:
+            self.log("Last motion occurred: unknown (no data)")
+        else:
+            self.log(f"Last motion occurred {last_motion:.2f} seconds ago")
 
         if(self.count_on_motion_sensors() > 0):
             self.log(f"Turning on awtrix because motion was detected on {self.count_on_motion_sensors()} sensors")

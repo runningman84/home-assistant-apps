@@ -324,12 +324,6 @@ class AlarmControl(BaseApp):
         """Return True when current time is within the auto-arm night window."""
         return self.now_is_between(self._alarm_arm_night_after_time, self._alarm_arm_night_before_time)
 
-    # Backwards-compatible alias used across other apps
-    def is_time_in_night_window(self):
-        """Backwards-compatible alias for night/arm window check."""
-        return self.is_time_in_arm_night_window()
-
-
     def set_alarm_light_color(self, color_name="green", brightness_pct=100):
         """Set configured alarm lights to the given color and brightness."""
         self.log(f"Setting alarm light to color {color_name} and brightness {brightness_pct}")
@@ -833,6 +827,7 @@ class AlarmControl(BaseApp):
         self.log(f"There are {self.count_home_device_trackers()} device_trackers home and {self.count_not_home_device_trackers()} device_trackers not home")
         self.log(f"Guest mode is set to {self.in_guest_mode()}")
         self.log(f"Vacation mode is set to {self.in_vacation_mode()}")
+        self.log(f"Night mode is set to {self.is_time_in_night_window()}")
 
         if self.is_nobody_at_home():
             if self.in_vacation_mode():
