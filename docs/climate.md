@@ -46,6 +46,7 @@ climate:
   # away_hvac_mode: heat
   # away_temperature: 18
   # away_temperature_control: <value>
+  # cleanup_air_at_night: True
   # climate_controls: []
   # co2_sensor: <value>
   # co2_threshold: 800
@@ -90,6 +91,7 @@ climate:
 | `away_hvac_mode` | `heat` |
 | `away_temperature` | `18` |
 | `away_temperature_control` | `None` |
+| `cleanup_air_at_night` | `True` |
 | `climate_controls` | `[]` |
 | `co2_sensor` | `None` |
 | `co2_threshold` | `800` |
