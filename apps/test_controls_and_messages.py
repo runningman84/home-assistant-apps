@@ -132,17 +132,29 @@ def test_button_trigger_alarm_negative_branches(make_alarm_with_maps):
     app = make_alarm_with_maps({}, {}, {'always': {}})
     app.call_alarm_control_panel = lambda action: calls.append(action)
 
-    # bridge off
+    # The event handler should exit early when the bridge is offline or
+    # hasn't been online for long enough.  We simulate a button event that
+    # would normally map to trigger via alarm_button_callback.
+    event = {'entity_id': 'button.1', 'new_state': {'attributes': {'event_type': 'triple'}}}
+
+    # bridge off -> alarm_button_callback should ignore the event
     app.get_state = lambda e, attribute=None: 'off' if e == 'binary_sensor.zigbee2mqtt_bridge_connection_state' else None
-    app.button_trigger_alarm('ent')
+    app.alarm_button_callback('evt', event, {})
     assert calls == []
 
-    # bridge on but recently updated (<300s)
+    # bridge on but recently updated (<300s) -> still ignore
     calls.clear()
     app.get_state = lambda e, attribute=None: 'on' if e == 'binary_sensor.zigbee2mqtt_bridge_connection_state' else None
     app.get_seconds_since_update = lambda e: 100
-    app.button_trigger_alarm('ent')
+    app.alarm_button_callback('evt', event, {})
     assert calls == []
+
+    # However, calling the helper directly should always attempt to trigger
+    # the alarm (this is the behavior of the individual button helper).
+    calls.clear()
+    app.get_state = lambda e, attribute=None: 'off' if e == 'binary_sensor.zigbee2mqtt_bridge_connection_state' else None
+    app.button_trigger_alarm('ent')
+    assert calls == ['alarm_trigger']
 
 
 def test_trigger_alarm_sets_type_message_and_calls_panel(make_alarm_with_maps):

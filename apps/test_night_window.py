@@ -92,6 +92,10 @@ def _make_now_is_between_for_fixed_time(fixed_time):
 
 def test_time_1500_is_not_night(make_base_app, monkeypatch):
     app = make_base_app()
+    # Ensure we use the non-workday night window (23:15->08:30) so this test
+    # is deterministic regardless of the day the test runs on.
+    monkeypatch.setattr(app, "is_workday_today", lambda: False)
+    monkeypatch.setattr(app, "is_workday_tomorrow", lambda: False)
     # 15:00 should not be in the default night window (23:15-08:30)
     from datetime import time
     monkeypatch.setattr(app, "now_is_between", _make_now_is_between_for_fixed_time(time(15, 0)))
@@ -100,6 +104,10 @@ def test_time_1500_is_not_night(make_base_app, monkeypatch):
 
 def test_time_0300_is_night(make_base_app, monkeypatch):
     app = make_base_app()
+    # Ensure we use the non-workday night window (23:15->08:30) so this test
+    # is deterministic regardless of the day the test runs on.
+    monkeypatch.setattr(app, "is_workday_today", lambda: False)
+    monkeypatch.setattr(app, "is_workday_tomorrow", lambda: False)
     # 03:00 should be in the default night window
     from datetime import time
     monkeypatch.setattr(app, "now_is_between", _make_now_is_between_for_fixed_time(time(3, 0)))
@@ -108,6 +116,10 @@ def test_time_0300_is_night(make_base_app, monkeypatch):
 
 def test_time_2330_is_night(make_base_app, monkeypatch):
     app = make_base_app()
+    # Ensure we use the non-workday night window (23:15->08:30) so this test
+    # is deterministic regardless of the day the test runs on.
+    monkeypatch.setattr(app, "is_workday_today", lambda: False)
+    monkeypatch.setattr(app, "is_workday_tomorrow", lambda: False)
     # 23:30 falls after 23:15 -> night
     from datetime import time
     monkeypatch.setattr(app, "now_is_between", _make_now_is_between_for_fixed_time(time(23, 30)))
@@ -116,6 +128,10 @@ def test_time_2330_is_night(make_base_app, monkeypatch):
 
 def test_time_0829_is_night_but_0830_is_not(make_base_app, monkeypatch):
     app = make_base_app()
+    # Ensure we use the non-workday night window (23:15->08:30) so this test
+    # is deterministic regardless of the day the test runs on.
+    monkeypatch.setattr(app, "is_workday_today", lambda: False)
+    monkeypatch.setattr(app, "is_workday_tomorrow", lambda: False)
     from datetime import time
     monkeypatch.setattr(app, "now_is_between", _make_now_is_between_for_fixed_time(time(8, 29)))
     assert app.is_time_in_night_window() is True

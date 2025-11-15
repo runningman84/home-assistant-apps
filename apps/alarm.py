@@ -462,6 +462,13 @@ class AlarmControl(BaseApp):
 
         self.log(f"Got event type {event_type}")
 
+        if self.get_state("binary_sensor.zigbee2mqtt_bridge_connection_state") != 'on':
+            self.log("Doing nothing because zigbee2mqtt_bridge_connection_state is not on")
+            return
+        if self.get_seconds_since_update("binary_sensor.zigbee2mqtt_bridge_connection_state") < 300:
+            self.log("Doing nothing because zigbee2mqtt_bridge_connection_state is not online more than 300 seconds")
+            return
+
         if event_type == "single":
             if self.is_alarm_disarmed():
                 self.button_arm_home(entity_id)
@@ -509,7 +516,7 @@ class AlarmControl(BaseApp):
 
     def button_disarm(self, entity):
         """Disarm the alarm via a button action and send notification."""
-        if(self.is_alarm_disarmed()):
+        if self.is_alarm_disarmed():
             self.log(f"Ignoring call because alarm system is in state {self.get_alarm_state()}")
             return
 
@@ -521,13 +528,6 @@ class AlarmControl(BaseApp):
     def button_trigger_alarm(self, entity):
         """Force trigger the alarm using a physical button (debug/manual)."""
         self.log("Trigger alarm using button")
-
-        if self.get_state("binary_sensor.zigbee2mqtt_bridge_connection_state") != 'on':
-            self.log("Doing nothing because zigbee2mqtt_bridge_connection_state is not on")
-            return
-        if self.get_seconds_since_update("binary_sensor.zigbee2mqtt_bridge_connection_state") < 300:
-            self.log("Doing nothing because zigbee2mqtt_bridge_connection_state is not online more than 300 seconds")
-            return
 
         message = self.translate("security_alert").format(self.get_state(entity, attribute = "friendly_name"))
         self.notify(message)

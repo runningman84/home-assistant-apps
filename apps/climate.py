@@ -67,6 +67,8 @@ class ClimateControl(BaseApp):
 
         self._humidity_sensor = self.args.get("humidity_sensor", None)
 
+        self._cleanup_air_at_night = self.args.get("cleanup_air_at_night", True)
+
         self._offset_temperature = float(self.args.get("offset_temperature", 0))
         self._motion_temperature = float(self.args.get("motion_temperature", 21))
         self._motion_temperature_control = self.args.get("motion_temperature_control", None)
@@ -513,12 +515,23 @@ class ClimateControl(BaseApp):
             self.log(f"Setting desired hvac mode to off {desired_mode} to overheat", level="DEBUG")
 
         if desired_mode == 'off' and fan_supported:
-            if not self.is_aqi_okay() or not self.is_voc_okay():
-                if self.is_somebody_at_home() and self.count_on_opening_sensors() == 0:
-                    self.log("Setting desired hvac mode to fan_only due to bad air", level="DEBUG")
-                    desired_mode = 'fan_only'
+            # If air quality is poor, someone is home, no windows are open and
+            # either it's not night or night-time cleanup is allowed, then use
+            # fan_only instead of remaining off.
+            air_bad = (not self.is_aqi_okay()) or (not self.is_voc_okay())
+            someone_home = self.is_somebody_at_home()
+            windows_closed = self.count_on_opening_sensors() == 0
+            night_ok = (not self.is_time_in_night_window()) or self.is_cleanup_air_at_night_enabled()
+
+            if air_bad and someone_home and windows_closed and night_ok:
+                self.log("Setting desired hvac mode to fan_only due to bad air", level="DEBUG")
+                desired_mode = 'fan_only'
 
         return desired_mode
+
+    def is_cleanup_air_at_night_enabled(self):
+        """Return True if air cleanup at night is enabled."""
+        return self._cleanup_air_at_night
 
     def get_current_temperature(self, entity_id):
         """Return the current measured temperature for a climate entity.
