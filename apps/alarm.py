@@ -202,6 +202,8 @@ class AlarmControl(BaseApp):
         self._sensors['always']['fire'] = self.args.get("fire_temperature_sensors", [])
 
         self._sensors_ignored = []
+        # Track unavailable periods for sensors: entity_id -> {"start": datetime, "end": datetime|None}
+        self._sensors_unavailable = {}
 
         # arming_state, group_name
 
@@ -611,6 +613,27 @@ class AlarmControl(BaseApp):
             return False
 
         if timeout is not None and last_update is not None:
+            # If the sensor was unavailable recently within the timeout window, ignore it
+            unavailable = self._sensors_unavailable.get(sensor)
+            if unavailable is not None:
+                start = unavailable.get("start")
+                end = unavailable.get("end")
+                now = datetime.now(timezone.utc)
+
+                # If the sensor is currently unavailable and its start time is within the timeout window
+                if end is None and start is not None:
+                    seconds_since_unavailable = (now - start).total_seconds()
+                    if seconds_since_unavailable < timeout:
+                        self.log(f"[{sensor}] Ignoring sensor because it became unavailable {seconds_since_unavailable:.2f}s ago (within timeout {timeout}s)", level="DEBUG")
+                        return True
+
+                # If the sensor was unavailable in the past and the end time is within the timeout window
+                if end is not None and (now - end).total_seconds() < timeout:
+                    seconds_since_available = (now - end).total_seconds()
+                    self.log(f"[{sensor}] Ignoring sensor because it was unavailable until {seconds_since_available:.2f}s ago (within timeout {timeout}s)", level="DEBUG")
+                    return True
+
+            # Normal timeout handling: if last_update is more recent than timeout, consider it too recent
             if last_update < timeout:
                 self.log(f"[{sensor}] Warning: Sensor is in state '{sensor_state}', but it changed {last_update:.2f} seconds ago, which is within the timeout period.", level="WARNING")
                 return False
@@ -1111,6 +1134,23 @@ class AlarmControl(BaseApp):
         flow to decide if an alarm should be raised.
         """
         self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
+
+        now = datetime.now(timezone.utc)
+
+        # Sensor became unavailable: record start time
+        if new == 'unavailable' and old != 'unavailable':
+            self.log(f"[{entity}] sensor became unavailable at {now.isoformat()}", level="DEBUG")
+            self._sensors_unavailable[entity] = {"start": now, "end": None}
+            if entity not in self._sensors_ignored:
+                self.log(f"[{entity}] adding sensor to ignore list because it became unavailable", level="DEBUG")
+                self._sensors_ignored.append(entity)
+
+        # Sensor became available again: record end time
+        elif old == 'unavailable' and new != 'unavailable':
+            self.log(f"[{entity}] sensor became available at {now.isoformat()}", level="DEBUG")
+            if entity in self._sensors_unavailable:
+                # set end timestamp for the unavailable period
+                self._sensors_unavailable[entity]["end"] = now
 
         if self.is_sensor_monitored(entity):
             self.analyze_and_trigger()

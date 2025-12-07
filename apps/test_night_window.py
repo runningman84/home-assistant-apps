@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 def test_get_night_times_non_workday(make_base_app, monkeypatch):
@@ -47,7 +47,7 @@ def test_get_seconds_until_night_end_future(make_base_app, monkeypatch):
     app = make_base_app()
 
     # Set a night_end a minute from now
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     future_time = (now + timedelta(minutes=1)).time().strftime("%H:%M:%S")
 
     monkeypatch.setattr(app, "get_night_times", lambda: ("00:00:00", future_time))
@@ -62,7 +62,7 @@ def test_get_seconds_until_night_end_past(make_base_app, monkeypatch):
     app = make_base_app()
 
     # Set a night_end earlier than now (yesterday) so the function rolls it to next day
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     past_time = (now - timedelta(hours=1)).time().strftime("%H:%M:%S")
     monkeypatch.setattr(app, "get_night_times", lambda: ("00:00:00", past_time))
 
