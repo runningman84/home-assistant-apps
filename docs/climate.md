@@ -56,7 +56,9 @@ climate:
   # home_temperature: 20
   # home_temperature_control: <value>
   # humidity_sensor: <value>
+  # internal_change_timeout: 60
   # max_overheat_allowance: 0.5
+  # max_temperature: 30
   # min_temperature: 7
   # motion_duration: 300
   # motion_hvac_mode: heat
@@ -70,6 +72,8 @@ climate:
   # open_temperature: 16
   # open_temperature_control: <value>
   # outside_temperature_sensor: <value>
+  # overdrive_mode: False
+  # overdrive_temperature: 30
   # summer_hvac_mode: off
   # summer_temperature: 7
   # summer_temperature_control: <value>
@@ -101,7 +105,9 @@ climate:
 | `home_temperature` | `20` |
 | `home_temperature_control` | `None` |
 | `humidity_sensor` | `None` |
+| `internal_change_timeout` | `60` |
 | `max_overheat_allowance` | `0.5` |
+| `max_temperature` | `30` |
 | `min_temperature` | `7` |
 | `motion_duration` | `300` |
 | `motion_hvac_mode` | `heat` |
@@ -115,6 +121,8 @@ climate:
 | `open_temperature` | `16` |
 | `open_temperature_control` | `None` |
 | `outside_temperature_sensor` | `None` |
+| `overdrive_mode` | `False` |
+| `overdrive_temperature` | `30` |
 | `summer_hvac_mode` | `off` |
 | `summer_temperature` | `7` |
 | `summer_temperature_control` | `None` |

@@ -51,15 +51,23 @@ alarm:
   # alarm_pin: <value>
   # armed_away_binary_sensors: []
   # armed_away_image_processing_sensors: []
+  # armed_away_sensor_categories_threshold: 2
+  # armed_away_sensor_delay: 10
+  # armed_away_sensor_threshold: 2
   # armed_home_binary_sensors: []
   # armed_home_image_processing_sensors: []
+  # armed_home_sensor_delay: 0
+  # armed_home_sensor_threshold: 1
   # burglar_siren_switches: []
   # fire_binary_sensors: []
+  # fire_sensor_threshold: 1
   # fire_siren_switches: []
   # fire_temperature_sensors: []
   # fire_temperature_threshold: 50
   # language: english
+  # trigger_cooldown: <complex>
   # water_binary_sensors: []
+  # water_sensor_threshold: 1
 ```
 
 ## Options
@@ -73,12 +81,20 @@ alarm:
 | `alarm_pin` | `None` |
 | `armed_away_binary_sensors` | `[]` |
 | `armed_away_image_processing_sensors` | `[]` |
+| `armed_away_sensor_categories_threshold` | `2` |
+| `armed_away_sensor_delay` | `10` |
+| `armed_away_sensor_threshold` | `2` |
 | `armed_home_binary_sensors` | `[]` |
 | `armed_home_image_processing_sensors` | `[]` |
+| `armed_home_sensor_delay` | `0` |
+| `armed_home_sensor_threshold` | `1` |
 | `burglar_siren_switches` | `[]` |
 | `fire_binary_sensors` | `[]` |
+| `fire_sensor_threshold` | `1` |
 | `fire_siren_switches` | `[]` |
 | `fire_temperature_sensors` | `[]` |
 | `fire_temperature_threshold` | `50` |
 | `language` | `english` |
+| `trigger_cooldown` | `<complex>` |
 | `water_binary_sensors` | `[]` |
+| `water_sensor_threshold` | `1` |
