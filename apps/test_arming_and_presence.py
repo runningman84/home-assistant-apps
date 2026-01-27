@@ -35,8 +35,9 @@ def test_motion_burglar_triggers_when_vacuum_docked(make_alarm_with_maps):
     app.count_cleaning_vacuum_cleaners = lambda: 0
     app.count_returning_vacuum_cleaners = lambda: 0
 
-    # ensure threshold allows single-sensor trigger for this test
+    # ensure thresholds allow single-sensor and single-category trigger for this test
     app._armed_away_sensor_threshold = 1
+    app._armed_away_sensor_categories_threshold = 1
 
     app.is_alarm_armed_away = lambda: True
 

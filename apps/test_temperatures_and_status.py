@@ -15,6 +15,7 @@ def make_app(args=None, state_map=None):
     app._night_start = "23:15:00"
     app._night_end = "08:30:00"
     app._min_temperature = 7
+    app._max_temperature = 30
     app._offset_temperature = 0
     app._home_temperature = 20
     app._home_temperature_control = None

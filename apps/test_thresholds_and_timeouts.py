@@ -28,15 +28,82 @@ def test_armed_away_threshold_lowered_by_vacuum_and_triggers(make_alarm_with_map
 
     app = make_alarm_with_maps(device_class_map, state_map, sensors)
 
-    # simulate returning vacuum which lowers the threshold
+    # simulate returning vacuum which lowers both thresholds to 1
     app.count_returning_vacuum_cleaners = lambda: 1
     assert app.get_armed_away_sensor_threshold() == 1
+    assert app.get_armed_away_sensor_categories_threshold() == 1
 
+    app.call_alarm_control_panel = lambda action: calls.append(action)
+    app.is_alarm_armed_away = lambda: True
+    app._alarm_type = 'burglar'  # Set alarm type for category checking
+
+    app.analyze_and_trigger()
+
+    assert 'alarm_trigger' in calls
+
+
+def test_armed_away_requires_multiple_sensor_categories(make_alarm_with_maps):
+    """Armed away mode requires both sensor count threshold AND category threshold to trigger burglar alarm."""
+    calls = []
+
+    # Two sensors of the same category (door)
+    device_class_map = {'door1': 'door', 'door2': 'door'}
+    state_map = {'door1': 'on', 'door2': 'on'}
+    sensors = {'armed_away': {'group1': ['door1', 'door2']}, 'always': {}}
+
+    app = make_alarm_with_maps(device_class_map, state_map, sensors)
+    app.call_alarm_control_panel = lambda action: calls.append(action)
+    app.is_alarm_armed_away = lambda: True
+
+    # Default thresholds: 2 sensors AND 2 categories required
+    assert app.get_armed_away_sensor_threshold() == 2
+    assert app.get_armed_away_sensor_categories_threshold() == 2
+
+    app.analyze_and_trigger()
+
+    # Should NOT trigger because only 1 category (door) despite 2 sensors
+    assert 'alarm_trigger' not in calls
+
+
+def test_armed_away_triggers_with_multiple_categories(make_alarm_with_maps):
+    """Armed away mode triggers when both sensor count AND category thresholds are met."""
+    calls = []
+
+    # Two sensors of different categories (door and motion)
+    device_class_map = {'door1': 'door', 'motion1': 'motion'}
+    state_map = {'door1': 'on', 'motion1': 'on'}
+    sensors = {'armed_away': {'group1': ['door1', 'motion1']}, 'always': {}}
+
+    app = make_alarm_with_maps(device_class_map, state_map, sensors)
+    app.call_alarm_control_panel = lambda action: calls.append(action)
+    app.is_alarm_armed_away = lambda: True
+
+    # Default thresholds: 2 sensors AND 2 categories required
+    assert app.get_armed_away_sensor_threshold() == 2
+    assert app.get_armed_away_sensor_categories_threshold() == 2
+
+    app.analyze_and_trigger()
+
+    # Should trigger because we have 2 sensors AND 2 different categories
+    assert 'alarm_trigger' in calls
+
+
+def test_armed_away_with_three_sensors_two_categories(make_alarm_with_maps):
+    """Armed away with 3 sensors from 2 categories should trigger (both thresholds met)."""
+    calls = []
+
+    # Three sensors: 2 doors + 1 motion = 2 categories
+    device_class_map = {'door1': 'door', 'door2': 'door', 'motion1': 'motion'}
+    state_map = {'door1': 'on', 'door2': 'on', 'motion1': 'on'}
+    sensors = {'armed_away': {'group1': ['door1', 'door2', 'motion1']}, 'always': {}}
+
+    app = make_alarm_with_maps(device_class_map, state_map, sensors)
     app.call_alarm_control_panel = lambda action: calls.append(action)
     app.is_alarm_armed_away = lambda: True
 
     app.analyze_and_trigger()
 
+    # Should trigger: 3 sensors (>= 2) AND 2 categories (>= 2)
     assert 'alarm_trigger' in calls
 
 

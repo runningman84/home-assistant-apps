@@ -62,7 +62,7 @@ class WeatherWarning(BaseApp):
 
     def sensor_change_callback(self, entity, attribute, old, new, kwargs):
         """State-change listener for warning sensors; triggers evaluation."""
-        self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
+        self.log(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
         self.handle_warnings()
 
     def seconds_until_tomorrow(self):

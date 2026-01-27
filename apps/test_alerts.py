@@ -36,9 +36,10 @@ def test_water_alert_triggers_analyze_and_trigger(make_alarm_with_maps):
 def test_burglar_alert_triggers_when_armed_away(make_alarm_with_maps):
     calls = []
 
-    device_class_map = {'door1': 'door', 'door2': 'door'}
-    state_map = {'door1': 'on', 'door2': 'on'}
-    sensors = {'armed_away': {'group1': ['door1', 'door2']}, 'always': {}}
+    # Use door and motion sensors to meet both count (2) and category (2) thresholds
+    device_class_map = {'door1': 'door', 'motion1': 'motion'}
+    state_map = {'door1': 'on', 'motion1': 'on'}
+    sensors = {'armed_away': {'group1': ['door1', 'motion1']}, 'always': {}}
 
     app = make_alarm_with_maps(device_class_map, state_map, sensors)
 

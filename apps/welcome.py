@@ -55,13 +55,25 @@ class WelcomeControl(BaseApp):
         self._language = self.args.get("language", "german")
         self._translation = {
             "german": {
-                "welcome_with_name": [
-                    "Willkommen zurück {names}!",
-                    "Schön, dass du wieder da bist, {names}.",
+                "welcome_single": [
+                    "Willkommen zurück, {names}!",
+                    "Schön, dass du wieder da bist, {names}!",
                     "Hallo {names}, willkommen zuhause!",
                     "Freut mich, dich zu sehen, {names}!",
-                    "Schön, dass {names} wieder da sind!",
+                    "Schön, dass {names} wieder da ist!",
                     "Willkommen zurück — {names} ist wieder zu Hause!",
+                    "Hi {names}, willkommen zurück!",
+                    "Guten Tag {names}, willkommen zuhause!",
+                    "Herzlich willkommen zurück, {names}!",
+                    "{names}, schön, dass du wieder da bist!"
+                ],
+                "welcome_multiple": [
+                    "Willkommen zurück, {names}!",
+                    "Schön, dass ihr wieder da seid, {names}!",
+                    "Hallo {names}, willkommen zuhause!",
+                    "Freut mich, euch zu sehen, {names}!",
+                    "Schön, dass {names} wieder da sind!",
+                    "Willkommen zurück — {names} sind wieder zu Hause!",
                     "Hi {names}, willkommen zurück!",
                     "Guten Tag {names}, willkommen zuhause!",
                     "Herzlich willkommen zurück, {names}!",
@@ -74,17 +86,29 @@ class WelcomeControl(BaseApp):
                     "Schön, dich zu sehen!",
                     "Willkommen!"
                 ],
-                "farewell_with_name": [
-                    "Auf Wiedersehen {names}!",
+                "farewell_single": [
+                    "Auf Wiedersehen, {names}!",
                     "Tschüss {names}, bis bald!",
-                    "Mach's gut {names}!",
-                    "Bis später {names}!",
+                    "Mach's gut, {names}!",
+                    "Bis später, {names}!",
                     "Alles Gute, {names}!",
                     "Bis bald, {names}!",
                     "Schönen Tag noch, {names}!",
-                    "Auf Wiedersehen und bis bald {names}!",
-                    "Tschüss und gute Reise {names}!",
-                    "Lebt wohl, {names}!"
+                    "Auf Wiedersehen und bis bald, {names}!",
+                    "Tschüss und gute Reise, {names}!",
+                    "Pass auf dich auf, {names}!"
+                ],
+                "farewell_multiple": [
+                    "Auf Wiedersehen, {names}!",
+                    "Tschüss {names}, bis bald!",
+                    "Macht's gut, {names}!",
+                    "Bis später, {names}!",
+                    "Alles Gute, {names}!",
+                    "Bis bald, {names}!",
+                    "Schönen Tag noch, {names}!",
+                    "Auf Wiedersehen und bis bald, {names}!",
+                    "Tschüss und gute Reise, {names}!",
+                    "Passt auf euch auf, {names}!"
                 ],
                 "farewell_no_name": [
                     "Auf Wiedersehen!",
@@ -100,17 +124,29 @@ class WelcomeControl(BaseApp):
                 ]
             },
             "english": {
-                "welcome_with_name": [
-                    "Welcome back {names}!",
-                    "Nice to have you back, {names}.",
+                "welcome_single": [
+                    "Welcome back, {names}!",
+                    "Nice to have you back, {names}!",
                     "Hello {names}, welcome home!",
                     "Good to see you, {names}!",
-                    "Welcome back — {names} is home again!",
+                    "{names} is home again!",
                     "Hi {names}, welcome back!",
                     "Greetings {names}, welcome home!",
                     "Welcome home, {names}!",
                     "Glad you're back, {names}!",
                     "{names}, great to have you home!"
+                ],
+                "welcome_multiple": [
+                    "Welcome back, {names}!",
+                    "Nice to have you all back, {names}!",
+                    "Hello {names}, welcome home!",
+                    "Good to see you all, {names}!",
+                    "{names} are home again!",
+                    "Hi {names}, welcome back!",
+                    "Greetings {names}, welcome home!",
+                    "Welcome home, {names}!",
+                    "Glad you're all back, {names}!",
+                    "{names}, great to have you all home!"
                 ],
                 "welcome_no_name": [
                     "Welcome home!",
@@ -119,16 +155,28 @@ class WelcomeControl(BaseApp):
                     "Good to see you!",
                     "Welcome!"
                 ],
-                "farewell_with_name": [
-                    "Goodbye {names}!",
+                "farewell_single": [
+                    "Goodbye, {names}!",
                     "Bye {names}, see you soon!",
-                    "Take care {names}!",
-                    "See you later {names}!",
+                    "Take care, {names}!",
+                    "See you later, {names}!",
                     "All the best, {names}!",
                     "See you soon, {names}!",
                     "Have a nice day, {names}!",
-                    "Goodbye and safe travels {names}!",
-                    "Bye and take care {names}!",
+                    "Goodbye and safe travels, {names}!",
+                    "Bye and take care, {names}!",
+                    "Farewell, {names}!"
+                ],
+                "farewell_multiple": [
+                    "Goodbye, {names}!",
+                    "Bye {names}, see you all soon!",
+                    "Take care, {names}!",
+                    "See you all later, {names}!",
+                    "All the best, {names}!",
+                    "See you soon, {names}!",
+                    "Have a nice day, {names}!",
+                    "Goodbye and safe travels to you all, {names}!",
+                    "Bye and take care, {names}!",
                     "Farewell, {names}!"
                 ],
                 "farewell_no_name": [
@@ -173,7 +221,7 @@ class WelcomeControl(BaseApp):
             new (str): new state value.
             kwargs (dict): additional AppDaemon kwargs.
         """
-        self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
+        self.log(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         direction = self.get_direction()
         self.log(f"Movement direction: {direction}")
@@ -200,9 +248,9 @@ class WelcomeControl(BaseApp):
             # sentence structure, then format it twice: once with mapped
             # names for better TTS and once with unmapped/display names for
             # text output.
-            has_names = len(residents) > 0
-            template = self._select_template("welcome", has_names)
-            if has_names:
+            num_residents = len(residents)
+            template = self._select_template("welcome", num_residents)
+            if num_residents > 0:
                 audio_names = self._format_name_list(residents, mapped=True)
                 text_names = self._format_name_list(residents, mapped=False)
                 audio_message = template.format(names=audio_names)
@@ -217,7 +265,7 @@ class WelcomeControl(BaseApp):
             self._last_activity = datetime.now(timezone.utc)
         elif direction == "going":
             self.log("Detected leaving movement; sending farewell message.")
-            template = self._select_template("farewell", False)
+            template = self._select_template("farewell", 0)
             audio_message = template
             text_message = template
             self.notify_media(message=audio_message)
@@ -251,8 +299,8 @@ class WelcomeControl(BaseApp):
         inside_motion_seconds = self.get_seconds_since_update(self._inside_motion_sensor)
         outside_motion_seconds = self.get_seconds_since_update(self._outside_motion_sensor)
 
-        self.log(f"Inside motion sensor: {self._inside_motion_sensor} state={inside_motion_state} seconds={inside_motion_seconds}")
-        self.log(f"Outside motion sensor: {self._outside_motion_sensor} state={outside_motion_state} seconds={outside_motion_seconds}")
+        self.log(f"Inside motion sensor: {self._inside_motion_sensor} state={inside_motion_state} seconds={inside_motion_seconds}s")
+        self.log(f"Outside motion sensor: {self._outside_motion_sensor} state={outside_motion_state} seconds={outside_motion_seconds}s")
 
         if len(self.get_residents()) > 0:
             return "coming"
@@ -333,19 +381,25 @@ class WelcomeControl(BaseApp):
         # more than two: Oxford-style with 'und' before last
         return ", ".join(names[:-1]) + f" und {names[-1]}"
 
-    def _select_template(self, kind, has_names):
+    def _select_template(self, kind, num_residents):
         """Select a template string for `kind` ('welcome'|'farewell').
 
-        `has_names` indicates whether to select a template that expects a
-        `{names}` placeholder. This returns a single template string (not
-        a list) chosen from the current language's translation mapping,
-        falling back to English when necessary.
+        `num_residents` indicates the number of residents: 0 for no names,
+        1 for single visitor, or >1 for multiple visitors. This returns a
+        single template string chosen from the current language's translation
+        mapping, falling back to English when necessary.
         """
         language = self._language
-        key = f"{kind}_with_name" if has_names else f"{kind}_no_name"
+        if num_residents == 0:
+            key = f"{kind}_no_name"
+        elif num_residents == 1:
+            key = f"{kind}_single"
+        else:
+            key = f"{kind}_multiple"
+        
         templates = self._translation.get(language, {}).get(key, [])
         if not templates:
-            templates = self._translation.get("english", {}).get(key, ["{names}"] if has_names else [""])
+            templates = self._translation.get("english", {}).get(key, ["{names}"] if num_residents > 0 else [""])
         return random.choice(templates)
 
     # Template lists are provided via `self._translation` in initialize().

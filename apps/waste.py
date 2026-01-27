@@ -55,7 +55,7 @@ class WasteReminder(BaseApp):
 
     def sensor_change_callback(self, entity, attribute, old, new, kwargs):
         """State-change listener for the waste calendar sensor; calls setup()."""
-        self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
+        self.log(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
         self.setup()
 
     def seconds_until_tomorrow(self):

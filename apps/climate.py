@@ -47,6 +47,8 @@ class ClimateControl(BaseApp):
         # setup sane defaults
         self._climate_controls = self.args.get("climate_controls", [])
 
+        self._internal_change_timeout = int(self.args.get("internal_change_timeout", 60))
+
         self._external_temperature_sensor = self.args.get("external_temperature_sensor", None)
         self._outside_temperature_sensor = self.args.get("outside_temperature_sensor", None)
         self._max_overheat_allowance = self.args.get("max_overheat_allowance", 0.5)
@@ -55,6 +57,7 @@ class ClimateControl(BaseApp):
         self._summer_temperature_threshold_tomorrow = float(self.args.get("summer_temperature_threshold_tomorrow", self._summer_temperature_threshold + 3))
 
         self._min_temperature = float(self.args.get("min_temperature", 7))
+        self._max_temperature = float(self.args.get("max_temperature", 30))
 
         self._aqi_sensor = self.args.get("aqi_sensor", None)
         self._aqi_threshold = int(self.args.get("aqi_threshold", 50))
@@ -93,6 +96,9 @@ class ClimateControl(BaseApp):
         self._summer_hvac_mode = self.args.get("summer_hvac_mode", "off")
         self._summer_temperature_control = self.args.get("summer_temperature_control", None)
 
+        self._overdrive_temperature = float(self.args.get("overdrive_temperature", 30))
+        self._overdrive_mode = bool(self.args.get("overdrive_mode", False))
+
         self.log("=== Climate Control Configuration ===")
         self.log(f"Climate controls: {self._climate_controls}")
         self.log(f"External temperature sensor: {self._external_temperature_sensor}")
@@ -101,6 +107,10 @@ class ClimateControl(BaseApp):
         self.log(f"Max overheat allowance: {self._max_overheat_allowance}")
         self.log(f"Fan overheat temperature: {self._fan_overheat_temperature}°C")
         self.log(f"Minimum temperature: {self._min_temperature}°C")
+        self.log(f"Maximum temperature: {self._max_temperature}°C")
+        self.log(f"Internal change timeout: {self._internal_change_timeout}s")
+        self.log(f"External change timeout: {self._external_change_timeout}s")
+        self.log(f"Overdrive mode: {self._overdrive_mode}, target: {self._overdrive_temperature}°C")
 
         self.log("--- Air Quality Sensors ---")
         self.log(f"AQI sensor: {self._aqi_sensor}, threshold: {self._aqi_threshold}")
@@ -172,17 +182,19 @@ class ClimateControl(BaseApp):
             # record changes
             self.listen_state(self.control_change_callback, climate_control)
             self.listen_state(self.control_change_callback, climate_control, attribute="temperature")
-            self.listen_state(self.control_change_callback, climate_control, attribute="hvac_mode")
             self.listen_state(self.control_change_callback, climate_control, attribute="fan_mode")
             self.listen_state(self.control_change_callback, climate_control, attribute="preset_mode")
             self.listen_state(self.control_change_callback, climate_control, attribute="swing_mode")
             self.listen_state(self.control_change_callback, climate_control, attribute="swing_horizontal_mode")
             # act on changes delayed
-            self.listen_state(self.sensor_change_callback, climate_control, duration=60)
-            self.listen_state(self.sensor_change_callback, climate_control, attribute="temperature", duration=60)
-            self.listen_state(self.sensor_change_callback, climate_control, attribute="hvac_mode", duration=60)
-            self.listen_state(self.sensor_change_callback, climate_control, attribute="fan_mode", duration=60)
-            self.listen_state(self.sensor_change_callback, climate_control, attribute="preset_mode", duration=60)
+            #self.listen_state(self.sensor_change_callback, climate_control, duration=60)
+            #self.listen_state(self.sensor_change_callback, climate_control, attribute="temperature", duration=60)
+            #self.listen_state(self.sensor_change_callback, climate_control, attribute="hvac_mode", duration=60)
+            #self.listen_state(self.sensor_change_callback, climate_control, attribute="fan_mode", duration=60)
+            #self.listen_state(self.sensor_change_callback, climate_control, attribute="preset_mode", duration=60)
+            if not self._external_temperature_sensor:
+                self.listen_state(self.sensor_change_callback, climate_control, attribute="current_temperature")
+
 
         # listen for time changes
         if(self._night_start is not None):
@@ -469,15 +481,53 @@ class ClimateControl(BaseApp):
             return float(self.get_state(vars(self)['_' + status + '_temperature_control'])) + float(self._offset_temperature)
 
     def get_desired_temperature(self):
-        """Return the effective desired temperature considering status and minimum.
+        """Return the effective desired temperature considering status, minimum, and maximum.
 
         Returns the desired temperature for the current status, bounded by the
-        configured minimum temperature.
+        configured minimum and maximum temperature.
         """
         desired_temp = self.get_desired_temperature_by_status(self.get_current_status())
         if desired_temp is None:
             return self._min_temperature
-        return float(max(desired_temp, self._min_temperature))
+
+        return float(min(max(desired_temp, self._min_temperature), self._max_temperature))
+
+    def get_desired_target_temperature(self):
+        """Return the desired target temperature without min/max bounds.
+
+        Returns the desired temperature for the current status, without applying
+        the configured minimum and maximum temperature limits.
+        """
+        desired_temp = self.get_desired_temperature()
+
+        if not self._overdrive_mode:
+            return desired_temp
+
+        if self.get_external_temperature() is None:
+            return desired_temp
+        
+        if self.is_summer():
+            return desired_temp
+
+        if self.get_external_temperature() < desired_temp:
+            desired_temp = self._overdrive_temperature
+
+        return desired_temp
+    
+    def get_temperature_difference(self, entity_id):
+        """Return the difference between current and desired temperature.
+
+        Returns:
+            float: current temperature - desired temperature.
+        """
+
+        if self.get_external_temperature() is None:
+            current_temp = self.get_current_temperature(entity_id)
+        else:
+            current_temp = self.get_external_temperature()
+        desired_temp = self.get_desired_temperature()
+
+        return current_temp - desired_temp
 
     def get_desired_hvac_mode_by_status(self, status):
         """Return the desired HVAC mode configured for a given status."""
@@ -625,7 +675,7 @@ class ClimateControl(BaseApp):
             self.log(f"[{entity_id}] Cannot set optimal fan mode: Device is cooling during summer.")
             return
 
-        if self.get_current_fan_mode(entity_id) == self.get_desired_fan_mode():
+        if self.get_current_fan_mode(entity_id) == self.get_desired_fan_mode(entity_id):
             self.log(f"[{entity_id}] Optimal fan mode is already set.")
             return
 
@@ -634,6 +684,10 @@ class ClimateControl(BaseApp):
             return
 
         self.set_fan_mode(entity_id, self.get_desired_fan_mode(entity_id))
+
+    def get_current_hvac_action(self, entity_id):
+        """Return the current hvac_action attribute for a climate entity."""
+        return self.get_state(entity_id, attribute = "hvac_action")
 
     def get_current_preset_mode(self, entity_id):
         """Return the current preset_mode attribute for a climate entity."""
@@ -649,6 +703,10 @@ class ClimateControl(BaseApp):
         if entity_id is not None:
             if not self.is_preset_mode_supported(entity_id, 'quiet'):
                 return None
+            
+        if self.get_external_temperature() is not None:
+            if self.get_desired_hvac_mode(entity_id) == 'heat' and self.get_temperature_difference(entity_id) < -3:
+                desired_mode = "powerful"
 
         return desired_mode
 
@@ -662,7 +720,7 @@ class ClimateControl(BaseApp):
             self.log(f"[{entity_id}] Cannot set optimal preset mode: Device is cooling during summer.")
             return
 
-        if self.get_current_preset_mode(entity_id) == self.get_desired_preset_mode():
+        if self.get_current_preset_mode(entity_id) == self.get_desired_preset_mode(entity_id):
             self.log(f"[{entity_id}] Optimal preset mode is already set.")
             return
 
@@ -714,11 +772,11 @@ class ClimateControl(BaseApp):
         #     self.log(f"[{entity_id}] Cannot set optimal temperature: Room is overheating.")
         #     return
 
-        if self.get_target_temperature(entity_id) == self.get_desired_temperature():
+        if self.get_target_temperature(entity_id) == self.get_desired_target_temperature():
             self.log(f"[{entity_id}] Optimal temperature is already set.")
             return
 
-        self.set_temperature(entity_id, self.get_desired_temperature())
+        self.set_temperature(entity_id, self.get_desired_target_temperature())
 
     def periodic_time_callback(self, kwargs):
         """Scheduled callback executed at configured times to trigger updates."""
@@ -732,7 +790,7 @@ class ClimateControl(BaseApp):
         Ignores external changes that match the desired settings to avoid
         reacting to legitimate manual adjustments.
         """
-        self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
+        self.log(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         if self.is_current_change_external():
             if attribute == 'temperature' and new == self.get_desired_temperature():
@@ -741,7 +799,7 @@ class ClimateControl(BaseApp):
             if attribute == 'temperature' and new == self._min_temperature and self.get_current_hvac_mode(entity) == 'off':
                 self.log("Ignoring externl change because it matches expected temperature for hvac mode moff")
                 return
-            if attribute == 'hvac_mode' and new == self.get_desired_hvac_mode(entity):
+            if attribute == 'state' and new == self.get_desired_hvac_mode(entity):
                 self.log("Ignoring externl change because it matches the desired hvac mode")
                 return
             if attribute == 'fan_mode' and new == self.get_desired_fan_mode(entity):
@@ -755,7 +813,7 @@ class ClimateControl(BaseApp):
 
     def sensor_change_callback(self, entity, attribute, old, new, kwargs):
         """Handle generic sensor changes and trigger an immediate climate update."""
-        self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
+        self.log(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         self.update_climate()
 
@@ -802,10 +860,11 @@ class ClimateControl(BaseApp):
             self.log(f"[{climate_control}] Temp: {self.get_current_temperature(climate_control)}°C (current) | {self.get_target_temperature(climate_control)}°C (target) | {self.get_desired_temperature()}°C (desired)")
 
             # HVAC mode status
-            self.log(f"[{climate_control}] HVAC: {self.get_current_hvac_mode(climate_control)} (current) → {self.get_desired_hvac_mode(climate_control)} (desired)")
+            self.log(f"[{climate_control}] HVAC Mode: {self.get_current_hvac_mode(climate_control)} (current) → {self.get_desired_hvac_mode(climate_control)} (desired)")
 
             # Fan and preset modes (only if supported)
             mode_info = []
+            mode_info.append(f"HVAC Action: {self.get_current_hvac_action(climate_control)}")
             if self.is_fan_mode_supported(climate_control):
                 mode_info.append(f"Fan: {self.get_current_fan_mode(climate_control)} → {self.get_desired_fan_mode(climate_control)}")
             if self.is_preset_mode_supported(climate_control):
@@ -823,7 +882,7 @@ class ClimateControl(BaseApp):
                     self.set_optimal_preset_mode(climate_control)
             else:
                 remaining_seconds = self.get_remaining_seconds_before_internal_change_is_allowed()
-                self.log(f"[{climate_control}] Doing nothing: Internal change is not allowed for {remaining_seconds:.2f} more seconds.")
+                self.log(f"[{climate_control}] Doing nothing: Internal change is not allowed for {remaining_seconds:.0f}s.")
 
 
     def set_temperature(self, entity_id, temperature):

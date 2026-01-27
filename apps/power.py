@@ -134,7 +134,7 @@ class PowerControl(BaseApp):
 
         if not self.is_internal_change_allowed():
             remaining_seconds = self.get_remaining_seconds_before_internal_change_is_allowed()
-            self.log(f"Doing nothing: Internal change is not allowed for {remaining_seconds:.2f} more seconds.")
+            self.log(f"Doing nothing: Internal change is not allowed for {remaining_seconds:.0f}s.")
             return
 
         if(self.is_nobody_at_home()):
@@ -152,7 +152,7 @@ class PowerControl(BaseApp):
             return
 
         if(self.count_on_motion_sensors() == 0 and self.count_motion_sensors() > 0):
-            self.log(f"Turning off power because of last motion was {self.get_last_motion():.2f} seconds ago")
+            self.log(f"Turning off power because of last motion was {self.get_last_motion():.0f}s ago")
             self.turn_off_power()
             return
 
@@ -170,7 +170,7 @@ class PowerControl(BaseApp):
             self.log("Doing nothing because alarm is triggered or pending")
             return
 
-        self.log(f"Turning on power because of last motion was {self.get_last_motion():.2f} seconds ago")
+        self.log(f"Turning on power because of last motion was {self.get_last_motion():.0f}s ago")
         self.turn_on_power()
 
     def turn_on_power(self):
@@ -214,6 +214,6 @@ class PowerControl(BaseApp):
 
         Args mirror AppDaemon's listen_state callback signature.
         """
-        self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
+        self.log(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         self.update_power()

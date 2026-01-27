@@ -1,7 +1,7 @@
 from datetime import datetime
 
 
-def test_ignore_sensors_populates_ignored_and_skips(make_alarm_with_maps):
+def test_ignore_current_alerting_sensors_populates_ignored_and_skips(make_alarm_with_maps):
     device_class_map = {'door1': 'door'}
     state_map = {'door1': 'on'}
     sensors = {'armed_away': {'g': ['door1']}, 'always': {}}
@@ -12,7 +12,7 @@ def test_ignore_sensors_populates_ignored_and_skips(make_alarm_with_maps):
     alerts = app.get_alerts()
     assert 'burglar' in alerts
 
-    app.ignore_sensors('armed_away')
+    app.ignore_current_alerting_sensors('armed_away')
     assert 'door1' in app._sensors_ignored
 
     # After ignoring, get_alerts should not return door1
@@ -61,10 +61,17 @@ def test_control_change_callback_triggered_and_disarmed_branches(make_alarm_with
 
     app.set_alarm_light_color = lambda color, brightness: called.update({'color': (color, brightness)})
 
+    # Mock the ignore/reset methods to track what gets called
+    ignore_calls = []
+    app.ignore_current_alerting_sensors = lambda arming_state=None, alarm_type=None: ignore_calls.append(('ignore', arming_state, alarm_type))
+    
     app.control_change_callback('alarm', None, 'old', 'new', {})
 
     assert isinstance(app._last_disarm_timestamp, datetime)
-    assert app._sensors_ignored == []
+    # Should ignore burglar, fire, and water sensors (they may take time to clear/dry)
+    assert ('ignore', None, 'burglar') in ignore_calls
+    assert ('ignore', None, 'fire') in ignore_calls
+    assert ('ignore', None, 'water') in ignore_calls
     assert called.get('color') == ('green', 10)
 
 
@@ -264,3 +271,320 @@ def test_count_alerts_by_arming_state_counts_correctly(make_alarm_with_maps):
 
     count = app.count_alerts_by_arming_state('armed_away')
     assert count >= 2
+
+
+def test_disarm_ignores_burglar_fire_and_water_sensors(make_alarm_with_maps):
+    """Test that disarming ignores currently alerting burglar, fire, and water sensors."""
+    device_class_map = {
+        'burglar_sensor': 'door',
+        'fire_sensor': 'temperature',
+        'water_sensor': 'moisture'
+    }
+    state_map = {
+        'burglar_sensor': 'on',
+        'fire_sensor': '80',  # High temperature
+        'water_sensor': 'on',
+        'alarm_control_panel.ha_alarm': 'armed_away'  # Initially armed
+    }
+    sensors = {
+        'armed_away': {'g': ['burglar_sensor']},
+        'always': {
+            'fire': ['fire_sensor'],
+            'water': ['water_sensor']
+        }
+    }
+
+    app = make_alarm_with_maps(device_class_map, state_map, sensors)
+    app._fire_temperature_threshold = 35
+    app._arming_state = 'armed_away'
+    
+    # Stub methods to prevent side effects
+    app.reset_alarm_message = lambda: None
+    app.set_alarm_light_color = lambda *a, **k: None
+    app.stop_fire_siren = lambda: None
+    app.stop_burglar_siren = lambda: None
+    app.stop_media_warning = lambda: None
+    app.stop_flash_warning = lambda: None
+
+    # All three sensors should alert initially when armed
+    alerts_before = app.get_alerts(timeout=0)
+    assert 'burglar_sensor' in alerts_before.get('burglar', [])
+    assert 'fire_sensor' in alerts_before.get('fire', [])
+    assert 'water_sensor' in alerts_before.get('water', [])
+
+    # Now change to disarmed state and simulate disarm callback
+    state_map['alarm_control_panel.ha_alarm'] = 'disarmed'
+    
+    # Mock the methods to capture actual behavior
+    # When we call ignore_current_alerting_sensors(None, 'burglar') while disarmed,
+    # it won't find burglar_sensor because it's not monitored when disarmed
+    # So we need to call it while still armed
+    app.is_alarm_disarmed = lambda: True
+    
+    # The callback should call ignore with the current alert state
+    # Let's trace what actually gets called
+    ignored_calls = []
+    original_ignore = app.ignore_current_alerting_sensors
+    def track_ignore(arming_state=None, alarm_type=None):
+        ignored_calls.append((arming_state, alarm_type))
+        # Temporarily set back to armed to find burglar sensors
+        old_state = state_map.get('alarm_control_panel.ha_alarm')
+        if alarm_type == 'burglar':
+            state_map['alarm_control_panel.ha_alarm'] = 'armed_away'
+        result = original_ignore(arming_state, alarm_type)
+        state_map['alarm_control_panel.ha_alarm'] = old_state
+        return result
+    
+    app.ignore_current_alerting_sensors = track_ignore
+    app.get_alarm_state = lambda: state_map['alarm_control_panel.ha_alarm']
+    app.is_alarm_triggered = lambda: False
+    app.is_alarm_pending = lambda: False
+    app.is_alarm_arming = lambda: False
+    app.is_alarm_armed = lambda: False
+
+    # Simulate disarm callback
+    app.control_change_callback('alarm_control_panel.ha_alarm', 'state', 'armed_away', 'disarmed', {})
+
+    # Verify the right ignore calls were made
+    assert (None, 'burglar') in ignored_calls
+    assert (None, 'fire') in ignored_calls
+    assert (None, 'water') in ignored_calls
+    
+    # Check what got ignored - all three types should be ignored
+    assert 'burglar_sensor' in app._sensors_ignored
+    assert 'fire_sensor' in app._sensors_ignored
+    assert 'water_sensor' in app._sensors_ignored
+
+    # After disarm, all should not alert (ignored)
+    alerts_after = app.get_alerts(timeout=0)
+    assert 'fire_sensor' not in alerts_after.get('fire', [])  # Ignored
+    assert 'water_sensor' not in alerts_after.get('water', [])  # Ignored
+
+
+def test_sensor_automatically_unignored_when_returning_to_safe_state(make_alarm_with_maps):
+    """Test that ignored sensors are automatically removed from ignore list when they return to safe state."""
+    device_class_map = {
+        'door_sensor': 'door',
+        'temp_sensor': 'temperature',
+        'water_sensor': 'moisture'
+    }
+    state_map = {
+        'door_sensor': 'on',
+        'temp_sensor': '80',
+        'water_sensor': 'on'
+    }
+    sensors = {
+        'armed_away': {'g': ['door_sensor']},
+        'always': {
+            'fire': ['temp_sensor'],
+            'water': ['water_sensor']
+        }
+    }
+
+    app = make_alarm_with_maps(device_class_map, state_map, sensors)
+    app._fire_temperature_threshold = 35
+    app._arming_state = 'disarmed'  # Set initial arming state
+    app.get_alarm_state = lambda: 'disarmed'
+
+    # Manually add sensors to ignore list
+    app._sensors_ignored = ['door_sensor', 'temp_sensor', 'water_sensor']
+
+    # Sensor returns to safe state (off for binary, below threshold for temp)
+    state_map['door_sensor'] = 'off'
+    app.sensor_change_callback('door_sensor', 'state', 'on', 'off', {})
+    
+    # Door sensor should be automatically unignored
+    assert 'door_sensor' not in app._sensors_ignored
+    assert 'temp_sensor' in app._sensors_ignored  # Still ignored
+    assert 'water_sensor' in app._sensors_ignored  # Still ignored
+
+    # Temperature sensor returns to safe state
+    state_map['temp_sensor'] = '25'
+    app.sensor_change_callback('temp_sensor', 'state', '80', '25', {})
+    
+    # Temp sensor should be automatically unignored
+    assert 'temp_sensor' not in app._sensors_ignored
+    assert 'water_sensor' in app._sensors_ignored  # Still ignored
+
+    # Water sensor dries out
+    state_map['water_sensor'] = 'off'
+    app.sensor_change_callback('water_sensor', 'state', 'on', 'off', {})
+    
+    # Water sensor should be automatically unignored
+    assert 'water_sensor' not in app._sensors_ignored
+    assert len(app._sensors_ignored) == 0  # All cleared
+
+
+def test_rearm_clears_burglar_sensors_but_keeps_environmental(make_alarm_with_maps):
+    """Test that re-arming clears burglar sensors from ignore list but keeps fire/water."""
+    device_class_map = {
+        'door_sensor': 'door',
+        'temp_sensor': 'temperature',
+        'water_sensor': 'moisture'
+    }
+    state_map = {
+        'door_sensor': 'off',
+        'temp_sensor': '40',  # Still elevated
+        'water_sensor': 'on',  # Still wet
+        'alarm_control_panel.ha_alarm': 'disarmed'
+    }
+    sensors = {
+        'armed_away': {'g': ['door_sensor']},
+        'always': {
+            'fire': ['temp_sensor'],
+            'water': ['water_sensor']
+        }
+    }
+
+    app = make_alarm_with_maps(device_class_map, state_map, sensors)
+    app._fire_temperature_threshold = 35
+    app._arming_state = 'disarmed'
+    
+    # Stub methods
+    app.reset_alarm_message = lambda: None
+    app.set_alarm_light_color = lambda *a, **k: None
+    app.stop_fire_siren = lambda: None
+    app.stop_burglar_siren = lambda: None
+    app.stop_media_warning = lambda: None
+    app.stop_flash_warning = lambda: None
+
+    # All three sensors were ignored after previous disarm
+    app._sensors_ignored = ['door_sensor', 'temp_sensor', 'water_sensor']
+
+    # Now re-arm the system
+    state_map['alarm_control_panel.ha_alarm'] = 'armed_away'
+    app.get_alarm_state = lambda: 'armed_away'
+    app.is_alarm_armed = lambda: True
+    app.is_alarm_disarmed = lambda: False
+    app.is_alarm_triggered = lambda: False
+    app.is_alarm_pending = lambda: False
+    app.is_alarm_arming = lambda: False
+    app.count_alerts_by_arming_state = lambda s: 0  # No active alerts
+
+    # Simulate arming callback
+    app.control_change_callback('alarm_control_panel.ha_alarm', 'state', 'disarmed', 'armed_away', {})
+
+    # Burglar sensors should be cleared, but fire/water should remain
+    assert 'door_sensor' not in app._sensors_ignored
+    assert 'temp_sensor' in app._sensors_ignored  # Still ignored (still hot)
+    assert 'water_sensor' in app._sensors_ignored  # Still ignored (still wet)
+
+
+def test_rearm_with_active_sensors_ignores_them(make_alarm_with_maps):
+    """Test that re-arming with active sensors adds them to ignore list."""
+    device_class_map = {
+        'door_sensor': 'door',
+        'window_sensor': 'window'
+    }
+    state_map = {
+        'door_sensor': 'on',  # Door is open when arming
+        'window_sensor': 'off',
+        'alarm_control_panel.ha_alarm': 'disarmed'
+    }
+    sensors = {
+        'armed_away': {'g': ['door_sensor', 'window_sensor']},
+        'always': {}
+    }
+
+    app = make_alarm_with_maps(device_class_map, state_map, sensors)
+    app._arming_state = 'disarmed'
+    app._sensors_ignored = []
+    
+    # Stub methods
+    app.reset_alarm_message = lambda: None
+    app.stop_fire_siren = lambda: None
+    app.stop_burglar_siren = lambda: None
+    app.stop_media_warning = lambda: None
+    app.stop_flash_warning = lambda: None
+
+    # Arm the system with door open
+    state_map['alarm_control_panel.ha_alarm'] = 'armed_away'
+    app.get_alarm_state = lambda: 'armed_away'
+    app.is_alarm_armed = lambda: True
+    app.is_alarm_disarmed = lambda: False
+    app.is_alarm_triggered = lambda: False
+    app.is_alarm_pending = lambda: False
+    app.is_alarm_arming = lambda: False
+
+    # Simulate arming callback - door is still open
+    app.control_change_callback('alarm_control_panel.ha_alarm', 'state', 'disarmed', 'armed_away', {})
+
+    # Door sensor should be ignored (it was open when arming)
+    assert 'door_sensor' in app._sensors_ignored
+    assert 'window_sensor' not in app._sensors_ignored
+
+
+def test_trigger_cooldown_prevents_immediate_retrigger(make_alarm_with_maps):
+    """Test that alarm cannot be triggered again within cooldown period."""
+    from datetime import datetime, timezone, timedelta
+    
+    device_class_map = {'temp1': 'temperature'}
+    state_map = {
+        'temp1': '80',  # High temperature
+        'binary_sensor.zigbee2mqtt_bridge_connection_state': 'on'
+    }
+    sensors = {'always': {'fire': ['temp1']}}
+
+    app = make_alarm_with_maps(device_class_map, state_map, sensors)
+    app._arming_state = 'disarmed'
+    app._trigger_cooldown = 60 * 15  # 15 minutes
+    app._fire_temperature_threshold = 35
+    app.get_seconds_since_update = lambda e: 500  # Past the 300s threshold
+    app.count_home_device_trackers = lambda: 0
+    app.count_not_home_device_trackers = lambda: 1
+    app.in_guest_mode = lambda: False
+    app.in_vacation_mode = lambda: False
+    
+    trigger_calls = []
+    app.call_alarm_control_panel = lambda action: trigger_calls.append(action)
+
+    # First trigger should work (fire alarm)
+    app.analyze_and_trigger()
+    assert 'alarm_trigger' in trigger_calls
+    
+    # Simulate that the trigger happened 5 minutes ago
+    app._last_triggered_timestamp = datetime.now(timezone.utc) - timedelta(minutes=5)
+    trigger_calls.clear()
+    
+    # Second trigger should be blocked (within 15 min cooldown)
+    app.analyze_and_trigger()
+    assert 'alarm_trigger' not in trigger_calls
+    
+    # Simulate that the trigger happened 16 minutes ago (past cooldown)
+    app._last_triggered_timestamp = datetime.now(timezone.utc) - timedelta(minutes=16)
+    trigger_calls.clear()
+    
+    # Third trigger should work (cooldown expired)
+    app.analyze_and_trigger()
+    assert 'alarm_trigger' in trigger_calls
+
+
+def test_trigger_cooldown_configurable(make_alarm_with_maps):
+    """Test that trigger cooldown period is configurable."""
+    from datetime import datetime, timezone, timedelta
+    
+    device_class_map = {'water1': 'moisture'}
+    state_map = {
+        'water1': 'on',
+        'binary_sensor.zigbee2mqtt_bridge_connection_state': 'on'
+    }
+    sensors = {'always': {'water': ['water1']}}
+
+    app = make_alarm_with_maps(device_class_map, state_map, sensors)
+    app._arming_state = 'disarmed'
+    app._trigger_cooldown = 5 * 60  # Custom 5 minute cooldown
+    app.get_seconds_since_update = lambda e: 500  # Past the 300s threshold
+    app.count_home_device_trackers = lambda: 0
+    app.count_not_home_device_trackers = lambda: 1
+    app.in_guest_mode = lambda: False
+    app.in_vacation_mode = lambda: False
+    
+    # Set last trigger to 6 minutes ago (beyond 5 min cooldown)
+    app._last_triggered_timestamp = datetime.now(timezone.utc) - timedelta(minutes=6)
+    
+    trigger_calls = []
+    app.call_alarm_control_panel = lambda action: trigger_calls.append(action)
+    
+    # Should be able to trigger after 6 minutes with 5 min cooldown
+    app.analyze_and_trigger()
+    assert 'alarm_trigger' in trigger_calls

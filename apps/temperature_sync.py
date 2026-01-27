@@ -60,7 +60,7 @@ class TemperatureSync(hass.Hass):
 
         Invokes `sync_temperature` to mirror the latest numeric value to outputs.
         """
-        self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
+        self.log(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         self.sync_temperature()
 

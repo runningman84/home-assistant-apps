@@ -89,7 +89,7 @@ class FrigateControl(BaseApp):
         """
         if not self.is_internal_change_allowed():
             remaining_seconds = self.get_remaining_seconds_before_internal_change_is_allowed()
-            self.log(f"Doing nothing: Internal change is not allowed for {remaining_seconds} more seconds.")
+            self.log(f"Doing nothing: Internal change is not allowed for {remaining_seconds:.0f}s.")
             return
 
         if self._auto_turn_on_motion:
@@ -152,7 +152,7 @@ class FrigateControl(BaseApp):
             kwargs (dict): AppDaemon-provided kwargs.
         """
 
-        self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
+        self.log(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         self.setup()
 

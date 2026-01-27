@@ -57,7 +57,7 @@ class LightSwitch(hass.Hass):
         The handler expects the incoming event payload to contain the new_state
         attributes and an 'event_type' attribute describing the button action.
         """
-        self.log(f"{inspect.currentframe().f_code.co_name} from {event_name}:{data}")
+        self.log(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} from {event_name}:{data}")
         event_type = data['new_state']['attributes'].get('event_type', None)
 
         if event_type is None:

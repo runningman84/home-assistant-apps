@@ -160,7 +160,7 @@ class LightControl(BaseApp):
 
     def sensor_change_callback(self, entity, attribute, old, new, kwargs):
         """Generic sensor/state change callback that triggers an update of lights."""
-        self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
+        self.log(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         self.update_lights()
 
@@ -174,7 +174,7 @@ class LightControl(BaseApp):
 
         if not self.is_internal_change_allowed():
             remaining_seconds = self.get_remaining_seconds_before_internal_change_is_allowed()
-            self.log(f"Doing nothing: Internal change is not allowed for {remaining_seconds} more seconds.")
+            self.log(f"Doing nothing: Internal change is not allowed for {remaining_seconds:.0f}s.")
             return
 
         if(self.is_nobody_at_home()):
@@ -188,7 +188,7 @@ class LightControl(BaseApp):
             return
 
         if(self.count_on_motion_sensors() == 0 and self.count_motion_sensors() > 0):
-            self.log(f"Turning off lights because of last motion was {last_change:.2f} seconds ago")
+            self.log(f"Turning off lights because of last motion was {last_change:.0f}s ago")
             self.turn_off_lights()
             return
 
@@ -291,7 +291,7 @@ class LightControl(BaseApp):
         When alarm state becomes pending/triggered/arming/armed_* fluxer is turned
         off; when alarm returns to disarmed/armed_home it is turned on.
         """
-        self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
+        self.log(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
         if self._fluxer_switch is None:
             return

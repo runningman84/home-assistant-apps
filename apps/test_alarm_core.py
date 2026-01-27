@@ -391,13 +391,19 @@ def test_control_change_callback_branches(make_alarm_with_maps):
     app.control_change_callback('alarm_control_panel.ha_alarm', 'state', 'armed_away', 'pending', {})
     assert getattr(app, '_flash_started', False) is True
 
-    # simulate armed
+    # simulate armed - the system is being armed to 'armed_home'
     app.get_state = lambda e, attribute=None: 'armed_home' if e == 'alarm_control_panel.ha_alarm' else None
-    app._arming_state = 'armed_home'
+    app.get_alarm_state = lambda: 'armed_home'  # Override the fixture default
     app.count_alerts_by_arming_state = lambda s: 1
-    app.ignore_sensors = lambda s: setattr(app, '_ignored', True)
+    reset_calls = []
+    ignore_calls = []
+    app.reset_ignored_sensors = lambda alarm_type: reset_calls.append(alarm_type)
+    app.ignore_current_alerting_sensors = lambda arming_state=None, alarm_type=None: ignore_calls.append((arming_state, alarm_type))
     app.control_change_callback('alarm_control_panel.ha_alarm', 'state', 'pending', 'armed_home', {})
-    assert getattr(app, '_ignored', False) is True
+    # Should reset burglar sensors and ignore currently alerting sensors
+    assert 'burglar' in reset_calls
+    assert len(ignore_calls) == 1
+    assert ignore_calls[0] == ('armed_home', None)
 
     # simulate disarmed
     app.get_state = lambda e, attribute=None: 'disarmed' if e == 'alarm_control_panel.ha_alarm' else None

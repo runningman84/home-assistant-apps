@@ -76,7 +76,7 @@ class AwtrixControl(BaseApp):
         if last_motion is None:
             self.log("Last motion occurred: unknown (no data)")
         else:
-            self.log(f"Last motion occurred {last_motion:.2f} seconds ago")
+            self.log(f"Last motion occurred {last_motion:.0f}s ago")
 
         if(self.count_on_motion_sensors() > 0):
             self.log(f"Turning on awtrix because motion was detected on {self.count_on_motion_sensors()} sensors")
@@ -87,11 +87,11 @@ class AwtrixControl(BaseApp):
             self.turn_on()
             return
         if(self.is_time_in_night_window()):
-            self.log(f"Sleeping {self.get_seconds_until_night_end()} seconds until night time ends")
+            self.log(f"Sleeping {self.get_seconds_until_night_end()}s until night time ends")
             self.sleep(self.get_seconds_until_night_end())
             return
         if(self.count_on_motion_sensors() == 0):
-            self.log("Sleeping 60 seconds until next motion")
+            self.log("Sleeping 60s until next motion")
             self.sleep(60)
             #self.turn_off()
             return
@@ -115,7 +115,7 @@ class AwtrixControl(BaseApp):
             new (str): new state value.
             kwargs (dict): additional AppDaemon kwargs.
         """
-        self.log(f"{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
+        self.log(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
         self.setup()
 
     def send_mqtt(self, prefix, payload):
