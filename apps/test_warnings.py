@@ -1,16 +1,17 @@
+from datetime import datetime, timedelta
+
 from tests.weather.conftest import make_weather_app
-from datetime import datetime, timedelta, timezone
 
 
 def make_warning_state(now_offset_hours=2):
-    end = (datetime.now(timezone.utc) + timedelta(hours=now_offset_hours)).isoformat()
+    end = (datetime.now().astimezone() + timedelta(hours=now_offset_hours)).isoformat()
     return {
         'sensor.current': '1',
         ('sensor.current', 'warning_count'): 1,
         ('sensor.current', 'warning_1_name'): 'Warnung1',
         ('sensor.current', 'warning_1_headline'): 'Starkes Ereignis',
         ('sensor.current', 'warning_1_description'): 'Details',
-        ('sensor.current', 'warning_1_start'): datetime.now(timezone.utc).isoformat(),
+        ('sensor.current', 'warning_1_start'): datetime.now().astimezone().isoformat(),
         ('sensor.current', 'warning_1_end'): end,
     }
 

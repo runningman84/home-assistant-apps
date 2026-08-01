@@ -18,7 +18,7 @@ def test_count_switches_and_basic_turns():
 
 
 def test_periodic_and_sensor_callbacks_trigger_update():
-    app, calls = make_power_app()
+    app, _ = make_power_app()
     called = []
     app.update_power = lambda: called.append('u')
     app.periodic_time_callback({})

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 
 def test_last_disarm_blocks_auto_arm(make_alarm_with_maps):
@@ -6,7 +6,7 @@ def test_last_disarm_blocks_auto_arm(make_alarm_with_maps):
     app = make_alarm_with_maps({}, {}, {'always': {}})
 
     # set last disarm to now
-    app._last_disarm_timestamp = datetime.now(timezone.utc)
+    app._last_disarm_timestamp = datetime.now().astimezone()
 
     # make other predicates that would normally allow away auto-arm
     app.in_guest_mode = lambda: False

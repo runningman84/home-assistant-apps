@@ -2,11 +2,23 @@ from tests.climate.conftest import make_climate_app
 
 
 def test_desired_temperature_by_status_reads_control_entity_and_offset():
+    """Test that get_desired_temperature_by_status returns raw value without offset.
+    
+    Offset is now applied in get_desired_target_temperature() instead.
+    """
     app, _ = make_climate_app()
-    app._offset_temperature = 1.5
+    app._offset_temperature_heating = 1.5
+    app._offset_temperature_cooling = 1.5
     app._home_temperature_control = 'input_number.home_temp'
     app.get_state = lambda e, attribute=None: '21' if e == 'input_number.home_temp' else None
-    assert app.get_desired_temperature_by_status('home') == 22.5
+    
+    # get_desired_temperature_by_status should return raw value (21) without offset
+    assert app.get_desired_temperature_by_status('home') == 21.0
+    
+    # The offset is applied in get_desired_target_temperature instead
+    app._home_hvac_mode = 'heat'
+    app.get_current_status = lambda: 'home'
+    assert app.get_desired_target_temperature() == 22.5  # 21 + 1.5 offset
 
 
 def test_current_and_target_temperature_unavailable_and_unknown():

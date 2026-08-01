@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 
 from tests.base.factories import make_base_app
 
@@ -14,7 +14,7 @@ def test_internal_change_timing_marks_change_internal_and_expires():
     assert app.is_current_change_external() is False
 
     # Simulate internal change being older than the internal timeout
-    now = datetime.now(timezone.utc)
+    now = datetime.now().astimezone()
     app._internal_change_timestamp = now - timedelta(seconds=app.get_internal_change_timeout() + 5)
 
     # Now the internal timeout window expired -> change should be considered external
@@ -42,7 +42,7 @@ def test_external_change_blocks_internal_actions_until_timeout_when_somebody_hom
     assert app.is_internal_change_allowed() is False
 
     # Fast-forward external change beyond the configured external timeout
-    now = datetime.now(timezone.utc)
+    now = datetime.now().astimezone()
     app._external_change_timestamp = now - timedelta(seconds=app.get_external_change_timeout() + 2)
 
     # Now internal changes should be allowed again
@@ -53,7 +53,7 @@ def test_get_remaining_seconds_before_internal_change_reports_expected_range():
     app = make_base_app()
 
     # Set an external change 60 seconds ago
-    now = datetime.now(timezone.utc)
+    now = datetime.now().astimezone()
     app._external_change_timestamp = now - timedelta(seconds=60)
 
     rem = app.get_remaining_seconds_before_internal_change_is_allowed()

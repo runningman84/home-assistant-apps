@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 
 from apps.base import BaseApp
 
@@ -71,7 +71,7 @@ def make_base_app():
             return 10
         if attribute == "last_updated":
             # Return a recent ISO timestamp
-            return (datetime.now(timezone.utc) - timedelta(seconds=5)).isoformat()
+            return (datetime.now().astimezone() - timedelta(seconds=5)).isoformat()
         return None
 
     def now_is_between(start, end):

@@ -16,7 +16,7 @@ def make_weather_app(args=None, state_map=None):
 
     try:
         app.initialize()
-    except Exception:
+    except Exception:  # noqa: BLE001, S110
         pass
 
     return app, calls

@@ -27,9 +27,9 @@ power_control:
 See module docstring and inline examples for usage.
 """
 
-from base import BaseApp
 import inspect
 
+from base import BaseApp
 
 
 class PowerControl(BaseApp):

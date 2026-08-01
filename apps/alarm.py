@@ -36,11 +36,11 @@ alarm:
 See module docstring and inline examples for usage.
 """
 
-from base import BaseApp
-from datetime import datetime, timezone
-import re
 import inspect
+import re
+from datetime import datetime
 
+from base import BaseApp
 
 
 class AlarmControl(BaseApp):
@@ -56,6 +56,9 @@ class AlarmControl(BaseApp):
         """
         super().initialize()
 
+        # Initialize state tracking early to prevent AttributeError in callbacks
+        self._arming_state = None
+        self._alarm_type = None
 
         # translation
         self._language = self.args.get("language","english")
@@ -260,15 +263,13 @@ class AlarmControl(BaseApp):
             self.listen_event(self.alarm_button_callback, entity_id=button, event_type="state_changed", event="state_changed")
 
         # auto arm and disarm
-        i = 0
-        for sensor in self._device_trackers:
+        for i, sensor in enumerate(self._device_trackers):
             self.listen_state(self.presence_change_callback,
                                 sensor, old="home", duration=5 * 60 + i)
             self.listen_state(self.presence_change_callback,
                                 sensor, new="home", duration=i)
             self.listen_state(self.presence_change_callback,
                                 sensor, new="home", duration=5 * 60 + i)
-            i += 1
 
         if self._vacation_control:
             self.listen_state(self.presence_change_callback, self._vacation_control)
@@ -496,9 +497,7 @@ class AlarmControl(BaseApp):
                 self.button_arm_away(entity_id)
         elif event_type == "hold":
             self.button_disarm(entity_id)
-        elif event_type == "quadruple":
-            self.button_trigger_alarm(entity_id)
-        elif event_type == "triple":
+        elif event_type == "quadruple" or event_type == "triple":
             self.button_trigger_alarm(entity_id)
         else:
             self.log("Ignoring event")
@@ -517,7 +516,7 @@ class AlarmControl(BaseApp):
         if self.in_vacation_mode():
             mode = "arm_vacation"
 
-        message = self.translate("button_{}".format(mode)).format(self.get_state(entity, attribute = "friendly_name"))
+        message = self.translate(f"button_{mode}").format(self.get_state(entity, attribute = "friendly_name"))
         self.notify(message)
 
         self.arm_alarm('away')
@@ -574,7 +573,9 @@ class AlarmControl(BaseApp):
         A sensor is monitored when it appears in the configured sensor lists for
         the current or always arming states, and is not present in the ignore list.
         """
-        desired_arming_states = ['always', self.get_alarm_state(), self._arming_state]
+        desired_arming_states = ['always', self.get_alarm_state()]
+        if self._arming_state is not None and self._arming_state not in desired_arming_states:
+            desired_arming_states.append(self._arming_state)
 
         if self.is_sensor_ignored(sensor):
             return False
@@ -582,7 +583,7 @@ class AlarmControl(BaseApp):
         for arming_state, groups in self._sensors.items():
             if arming_state not in desired_arming_states:
                 continue
-            for group, sensors in groups.items():
+            for sensors in groups.values():
                 if sensor in sensors:
                     return True
         return False
@@ -632,7 +633,7 @@ class AlarmControl(BaseApp):
             if unavailable is not None:
                 start = unavailable.get("start")
                 end = unavailable.get("end")
-                now = datetime.now(timezone.utc)
+                now = datetime.now().astimezone()
 
                 # If the sensor is currently unavailable and its start time is within the timeout window
                 if end is None and start is not None:
@@ -694,10 +695,9 @@ class AlarmControl(BaseApp):
                     self.log(f"[{sensor}] Got {device_class} {sensor_state}", level="DEBUG")
 
                     alarm_category = self.classify_alarm(device_class)
-                    if alarm_type is not None:
-                        if alarm_category != alarm_type:
-                            self.log(f"[{sensor}] Skipping {device_class} sensor because it is not in desired alarm category", level="DEBUG")
-                            continue
+                    if alarm_type is not None and alarm_category != alarm_type:
+                        self.log(f"[{sensor}] Skipping {device_class} sensor because it is not in desired alarm category", level="DEBUG")
+                        continue
 
                     if self.is_sensor_ignored(sensor):
                         self.log(f"[{sensor}] Skipping {device_class} sensor because it is in ignore list", level="DEBUG")
@@ -723,7 +723,7 @@ class AlarmControl(BaseApp):
         """Add currently alerting sensors for the given arming_state to the ignore list."""
         alerts = self.get_alerts(0, arming_state, alarm_type)
 
-        for alarm_type, sensor_list in alerts.items():
+        for sensor_list in alerts.values():
             for sensor in sensor_list:
                 if not self.is_sensor_ignored(sensor):
                     self.log(f"[{sensor}] adding sensor to ignore list", level="DEBUG")
@@ -776,15 +776,11 @@ class AlarmControl(BaseApp):
 
     def is_arming_home_possible(self):
         """Return True when arming to 'home' is allowed (no blocking alerts)."""
-        if self.count_alerts_by_arming_state('armed_home', 30) > 0:
-            return False
-        return True
+        return not self.count_alerts_by_arming_state('armed_home', 30) > 0
 
     def is_arming_away_possible(self):
         """Return True when arming to 'away' is allowed (no blocking alerts)."""
-        if self.count_alerts_by_arming_state('armed_away', 30) > 0:
-            return False
-        return True
+        return not self.count_alerts_by_arming_state('armed_away', 30) > 0
 
     def is_auto_arming_home_allowed(self):
         """Policy: whether auto-arming to 'home' is allowed. Overrideable."""
@@ -807,16 +803,14 @@ class AlarmControl(BaseApp):
         if self._last_disarm_timestamp is None:
             return False
 
-        # Get current time in UTC
-        now = datetime.now(timezone.utc)
+        # Get current time in local timezone
+        now = datetime.now().astimezone()
 
         # Calculate seconds since the last external change
         last_change = self._last_disarm_timestamp
         seconds_ago = (now - last_change).total_seconds()
 
-        if seconds_ago < 600:
-            return True
-        return False
+        return seconds_ago < 600
 
     def is_auto_arming_allowed(self):
         """
@@ -952,8 +946,8 @@ class AlarmControl(BaseApp):
 
         # Check if we're in cooldown period after previous trigger
         if self._last_triggered_timestamp is not None:
-            from datetime import datetime, timezone
-            time_since_trigger = (datetime.now(timezone.utc) - self._last_triggered_timestamp).total_seconds()
+            from datetime import datetime
+            time_since_trigger = (datetime.now().astimezone() - self._last_triggered_timestamp).total_seconds()
             if time_since_trigger < self._trigger_cooldown:
                 remaining = self._trigger_cooldown - time_since_trigger
                 self.log(f"Cooldown active: {remaining:.0f} seconds remaining before new alarm can trigger", level="INFO")
@@ -1168,7 +1162,7 @@ class AlarmControl(BaseApp):
         self.log("disarm_alarm", level="WARNING")
         self.call_alarm_control_panel('alarm_disarm')
 
-    def trigger_alarm(self, alarm_type, alerts = {}):
+    def trigger_alarm(self, alarm_type, alerts = None):
         """
         Trigger the alarm immediately for the given alarm type.
 
@@ -1180,6 +1174,9 @@ class AlarmControl(BaseApp):
             alerts (dict): optional alerts mapping used to build the message.
         """
         self.log("trigger_alarm_" + alarm_type, level="WARNING")
+
+        if alerts is None:
+            alerts = {}
 
         self.set_alarm_type(alarm_type)
         self.set_alarm_message(self.create_alarm_message(alerts))
@@ -1208,11 +1205,10 @@ class AlarmControl(BaseApp):
         """
         self.log(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
-        if entity in self._device_trackers and new == 'home':
-            if self.is_alarm_armed() or self.is_alarm_pending() or self.is_alarm_triggered():
-                self.log("Somebody returned home therefore the alarm will be disabled")
-                self.disarm_alarm()
-                return
+        if entity in self._device_trackers and new == 'home' and (self.is_alarm_armed() or self.is_alarm_pending() or self.is_alarm_triggered()):
+            self.log("Somebody returned home therefore the alarm will be disabled")
+            self.disarm_alarm()
+            return
 
         self.setup()
 
@@ -1226,7 +1222,7 @@ class AlarmControl(BaseApp):
         """
         self.log(f"{self.__class__.__name__}.{inspect.currentframe().f_code.co_name} from {entity}:{attribute} {old}->{new}")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now().astimezone()
 
         # Sensor became unavailable: record start time
         if new == 'unavailable' and old != 'unavailable':
@@ -1265,7 +1261,7 @@ class AlarmControl(BaseApp):
         message_prio = 1
 
         if self.is_alarm_triggered():
-            self._last_triggered_timestamp = datetime.now(timezone.utc)
+            self._last_triggered_timestamp = datetime.now().astimezone()
             self.start_flash_warning('red')
             self.start_media_warning()
             if self.get_alarm_type() == 'burglar':
@@ -1276,17 +1272,16 @@ class AlarmControl(BaseApp):
             message_prio = 0
 
         if self.is_alarm_pending():
-            self._last_pending_timestamp = datetime.now(timezone.utc)
+            self._last_pending_timestamp = datetime.now().astimezone()
             self.start_flash_warning('orange')
             message = message + " " + self.get_alarm_message()
 
-        if self.is_alarm_arming():
-            if not self.is_time_in_night_window():
-                self.start_flash_warning('yellow', 50)
+        if self.is_alarm_arming() and not self.is_time_in_night_window():
+            self.start_flash_warning('yellow', 50)
 
         if self.is_alarm_armed():
             self.reset_alarm_message()
-            self._last_armed_timestamp = datetime.now(timezone.utc)
+            self._last_armed_timestamp = datetime.now().astimezone()
             self._arming_state = self.get_alarm_state()
             # Clear burglar sensors from previous disarm, keep environmental sensors ignored
             self.reset_ignored_sensors('burglar')
@@ -1297,7 +1292,7 @@ class AlarmControl(BaseApp):
 
         if self.is_alarm_disarmed():
             self.reset_alarm_message()
-            self._last_disarm_timestamp = datetime.now(timezone.utc)
+            self._last_disarm_timestamp = datetime.now().astimezone()
             # Ignore currently alerting burglar, fire, and water sensors to prevent immediate re-trigger
             # (Fire sensors like temperature may take time to cool down, water sensors may take time to dry)
             self.ignore_current_alerting_sensors(None, 'burglar')

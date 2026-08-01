@@ -18,7 +18,7 @@ def test_setup_turns_off_on_no_motion():
 
 
 def test_periodic_and_sensor_call_setup():
-    app, calls = make_frigate_app()
+    app, _ = make_frigate_app()
     called = []
     app.setup = lambda: called.append('s')
     app.periodic_time_callback({})

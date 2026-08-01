@@ -20,10 +20,10 @@ awtrix:
 See module docstring and inline examples for usage.
 """
 
-from base import BaseApp
-import json
 import inspect
+import json
 
+from base import BaseApp
 
 
 class AwtrixControl(BaseApp):

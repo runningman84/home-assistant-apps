@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 def test_ignore_current_alerting_sensors_populates_ignored_and_skips(make_alarm_with_maps):
@@ -516,7 +516,7 @@ def test_rearm_with_active_sensors_ignores_them(make_alarm_with_maps):
 
 def test_trigger_cooldown_prevents_immediate_retrigger(make_alarm_with_maps):
     """Test that alarm cannot be triggered again within cooldown period."""
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime
     
     device_class_map = {'temp1': 'temperature'}
     state_map = {
@@ -543,7 +543,7 @@ def test_trigger_cooldown_prevents_immediate_retrigger(make_alarm_with_maps):
     assert 'alarm_trigger' in trigger_calls
     
     # Simulate that the trigger happened 5 minutes ago
-    app._last_triggered_timestamp = datetime.now(timezone.utc) - timedelta(minutes=5)
+    app._last_triggered_timestamp = datetime.now().astimezone() - timedelta(minutes=5)
     trigger_calls.clear()
     
     # Second trigger should be blocked (within 15 min cooldown)
@@ -551,7 +551,7 @@ def test_trigger_cooldown_prevents_immediate_retrigger(make_alarm_with_maps):
     assert 'alarm_trigger' not in trigger_calls
     
     # Simulate that the trigger happened 16 minutes ago (past cooldown)
-    app._last_triggered_timestamp = datetime.now(timezone.utc) - timedelta(minutes=16)
+    app._last_triggered_timestamp = datetime.now().astimezone() - timedelta(minutes=16)
     trigger_calls.clear()
     
     # Third trigger should work (cooldown expired)
@@ -561,7 +561,7 @@ def test_trigger_cooldown_prevents_immediate_retrigger(make_alarm_with_maps):
 
 def test_trigger_cooldown_configurable(make_alarm_with_maps):
     """Test that trigger cooldown period is configurable."""
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime
     
     device_class_map = {'water1': 'moisture'}
     state_map = {
@@ -580,7 +580,7 @@ def test_trigger_cooldown_configurable(make_alarm_with_maps):
     app.in_vacation_mode = lambda: False
     
     # Set last trigger to 6 minutes ago (beyond 5 min cooldown)
-    app._last_triggered_timestamp = datetime.now(timezone.utc) - timedelta(minutes=6)
+    app._last_triggered_timestamp = datetime.now().astimezone() - timedelta(minutes=6)
     
     trigger_calls = []
     app.call_alarm_control_panel = lambda action: trigger_calls.append(action)

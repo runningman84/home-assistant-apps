@@ -54,7 +54,7 @@ def test_count_lights_and_callbacks_and_initialize():
     app.initialize()
 
     # test count_lights
-    app2, calls = make_light_app(args={'lights': ['light.l1', 'light.l2']}, state_map={'light.l1': 'on', 'light.l2': 'off'})
+    app2, _ = make_light_app(args={'lights': ['light.l1', 'light.l2']}, state_map={'light.l1': 'on', 'light.l2': 'off'})
     app2._lights = ['light.l1', 'light.l2']
     app2.get_state = lambda e, attribute=None: 'on' if e == 'light.l1' else 'off'
     assert app2.count_lights() == 2

@@ -27,7 +27,7 @@ def test_get_next_run_and_process_and_start_stop():
     assert any(c[0] == 'cancel' for c in calls) or app._processing_handle is None
 
 def test_count_sensors_and_stop_behavior():
-    app, calls = make_camera_app(args={'sensors': ['s1', 's2']})
+    app, _ = make_camera_app(args={'sensors': ['s1', 's2']})
     # no sensors on -> count_on_sensors == 0 -> stop_image_processing called
     app.get_state = lambda e, attribute=None: 'off'
 

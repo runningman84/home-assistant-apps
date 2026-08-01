@@ -24,7 +24,6 @@ See module docstring and inline examples for usage.
 import appdaemon.plugins.hass.hassapi as hass
 
 
-
 class CameraImageScanner(hass.Hass):
 
     def initialize(self):
@@ -61,7 +60,7 @@ class CameraImageScanner(hass.Hass):
             kwargs (dict): additional AppDaemon kwargs.
         """
         self.log(
-            "Callback trigger_image_scan_callback from {}:{} {}->{}".format(entity, attribute, old, new))
+            f"Callback trigger_image_scan_callback from {entity}:{attribute} {old}->{new}")
         self.start_image_processing()
     
     def trigger_stop_image_scan_callback(self, entity, attribute, old, new, kwargs):
@@ -71,11 +70,10 @@ class CameraImageScanner(hass.Hass):
         if none remain active.
         """
         self.log(
-            "Callback trigger_stop_image_scan_callback from {}:{} {}->{}".format(entity, attribute, old, new))
+            f"Callback trigger_stop_image_scan_callback from {entity}:{attribute} {old}->{new}")
 
         if(self.count_on_sensors() > 0):
-            self.log("Ignoring status {} of {} because {} sensors are still in status on".format(
-                new, entity, self.count_on_sensors()))
+            self.log(f"Ignoring status {new} of {entity} because {self.count_on_sensors()} sensors are still in status on")
             return
 
         self.stop_image_processing()
@@ -131,7 +129,7 @@ class CameraImageScanner(hass.Hass):
         self.call_service(
             "image_processing/scan", entity_id=self._image_processor)
         self._processing_count += 1
-        self.log("Image processing count {}".format(self._processing_count))
+        self.log(f"Image processing count {self._processing_count}")
         if self._processing_count < self._processing_max_count:
             self._processing_handle = self.run_in(self.process_image, self.get_next_run_in_sec())
 

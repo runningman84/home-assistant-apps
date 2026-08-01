@@ -81,7 +81,7 @@ class TelegramBotEventListener(hass.Hass):
         # user_id = payload_event['user_id']
         # chat_id = payload_event['chat_id']
 
-        self.log("Got command {}".format(payload_event))
+        self.log(f"Got command {payload_event}")
 
     def alarm_state_changed_callback(self, entity, attribute, old, new, kwargs):
         """React to alarm state changes and notify configured users.
@@ -91,9 +91,9 @@ class TelegramBotEventListener(hass.Hass):
         """
 
         self.log(
-            "Callback alarm_state_changed_callback from {}:{} {}->{}".format(entity, attribute, old, new))
+            f"Callback alarm_state_changed_callback from {entity}:{attribute} {old}->{new}")
 
-        msg = "Alarm state changed from {} to {}".format(old, new).replace('_', ' ')
+        msg = f"Alarm state changed from {old} to {new}".replace('_', ' ')
         disable_notification = True
 
         if new == 'triggered':
@@ -112,7 +112,7 @@ class TelegramBotEventListener(hass.Hass):
                         ("Trigger alarm", "/alarm_trigger")]]
 
         for user_id in self._user_ids:
-            self.log("Sending message {} to user_id {}".format(msg, user_id))
+            self.log(f"Sending message {msg} to user_id {user_id}")
             self.call_service('telegram_bot/send_message',
                                 service_data={
                                     "title" : '*Alarm Control*',
@@ -140,7 +140,7 @@ class TelegramBotEventListener(hass.Hass):
         user_id = payload_event['user_id']
         title = '*Alarm Control*'
 
-        self.log("Got callback {}".format(payload_event))
+        self.log(f"Got callback {payload_event}")
         # Handlers for alarm control callbacks. Each branch performs the
         # requested alarm action, answers the callback query and edits the
         # originating message so the UI reflects the current state.
@@ -159,7 +159,7 @@ class TelegramBotEventListener(hass.Hass):
             # Edit the message origin of the callback query
             msg_id = payload_event.get('message', {}).get('message_id')
             chat_id = payload_event.get('message', {}).get('chat', {}).get('id', user_id)
-            msg = "Alarm mode is {}".format(self.get_state(self._alarm_control_panel)).replace('_', ' ')
+            msg = f"Alarm mode is {self.get_state(self._alarm_control_panel)}".replace('_', ' ')
             self.call_service('telegram_bot/edit_message',
                                 service_data={
                                     "chat_id" : chat_id,
@@ -182,7 +182,7 @@ class TelegramBotEventListener(hass.Hass):
             # Edit the message origin of the callback query
             msg_id = payload_event.get('message', {}).get('message_id')
             chat_id = payload_event.get('message', {}).get('chat', {}).get('id', user_id)
-            msg = "Alarm mode is {}".format(self.get_state(self._alarm_control_panel)).replace('_', ' ')
+            msg = f"Alarm mode is {self.get_state(self._alarm_control_panel)}".replace('_', ' ')
             self.call_service('telegram_bot/edit_message',
                                 service_data={
                                     "chat_id" : chat_id,
@@ -203,7 +203,7 @@ class TelegramBotEventListener(hass.Hass):
             # Edit the message origin of the callback query
             msg_id = payload_event.get('message', {}).get('message_id')
             chat_id = payload_event.get('message', {}).get('chat', {}).get('id', user_id)
-            msg = "Alarm mode is {}".format(self.get_state(self._alarm_control_panel)).replace('_', ' ')
+            msg = f"Alarm mode is {self.get_state(self._alarm_control_panel)}".replace('_', ' ')
             self.call_service('telegram_bot/edit_message',
                                 service_data={
                                     "chat_id" : chat_id,
@@ -321,7 +321,7 @@ class TelegramBotEventListener(hass.Hass):
             keyboard = [[("Disarm alarm", "/alarm_disarm"),
                         ("Trigger alarm", "/alarm_trigger")]]
 
-        msg = "Alarm status is {}".format(self.get_state(self._alarm_control_panel))
+        msg = f"Alarm status is {self.get_state(self._alarm_control_panel)}"
 
         self.call_service('telegram_bot/send_message',
                             service_data={

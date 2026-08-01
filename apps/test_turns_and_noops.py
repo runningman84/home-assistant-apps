@@ -3,7 +3,7 @@ from tests.frigate.conftest import make_frigate_app
 
 def test_count_switches_filters():
     state_map = {'switch.a': 'on', 'switch.b': 'off'}
-    app, calls = make_frigate_app(args={'frigate_switches': ['switch.a', 'switch.b']}, state_map=state_map)
+    app, _ = make_frigate_app(args={'frigate_switches': ['switch.a', 'switch.b']}, state_map=state_map)
     app.get_state = lambda e, attribute=None: state_map.get(e)
 
     assert app.count_any_switches() == 2

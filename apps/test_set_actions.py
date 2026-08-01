@@ -44,3 +44,25 @@ def test_set_temperature_and_hvac_and_fan_and_preset():
     app.get_state = lambda e, attribute=None: ['quiet'] if attribute == 'preset_modes' else 'none'
     app.set_preset_mode('climate.l', 'quiet')
     assert hasattr(app, '_last_call')
+
+
+def test_set_optimal_temperature_skips_fan_only_mode():
+    """Test that set_optimal_temperature does not set temperature when mode is fan_only."""
+    app = make_app()
+    
+    # Setup: mode is fan_only, temperature would be different
+    app.get_desired_temperature = lambda: 21.0
+    app.get_desired_hvac_mode = lambda entity_id: 'fan_only'
+    app.get_target_temperature = lambda entity_id: 16.0
+    app.get_desired_target_temperature = lambda entity_id: 26.5
+    app.log = lambda msg, level="INFO": None  # Suppress logs
+    
+    # Ensure call_service is not called
+    call_service_called = []
+    app.call_service = lambda *a, **k: call_service_called.append((a, k))
+    
+    app.set_optimal_temperature('climate.test')
+    
+    # Should NOT call service because mode is fan_only
+    assert len(call_service_called) == 0, "set_temperature should not be called when mode is fan_only"
+

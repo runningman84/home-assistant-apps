@@ -33,9 +33,9 @@ light_control:
 See module docstring and inline examples for usage.
 """
 
-from base import BaseApp
 import inspect
 
+from base import BaseApp
 
 
 class LightControl(BaseApp):
@@ -60,7 +60,7 @@ class LightControl(BaseApp):
         self._auto_turn_on = self.args.get("auto_turn_on", True)
 
         # log current config
-        self.log("Got lights {}".format(self._lights))
+        self.log(f"Got lights {self._lights}")
 
         # start or stop power based on motion
         for sensor in self._motion_sensors:
@@ -116,9 +116,7 @@ class LightControl(BaseApp):
 
     def below_min_elevation(self):
         """Return True if the sun elevation is below configured minimum."""
-        if self.get_state("sun.sun", attribute = "elevation") < self._min_elevation:
-            return True
-        return False
+        return self.get_state("sun.sun", attribute = "elevation") < self._min_elevation
 
     def below_min_illumination(self):
         """Return True if any configured illumination sensor reports darkness.

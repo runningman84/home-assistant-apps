@@ -242,7 +242,7 @@ def test_internal_external_change_timing(make_alarm_with_maps):
     # ensure base internal/external change attributes exist
     app._internal_change_timestamp = None
     app._external_change_timestamp = None
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     # No external change recorded -> remaining time 0 and internal allowed
     app._external_change_timestamp = None
@@ -250,7 +250,7 @@ def test_internal_external_change_timing(make_alarm_with_maps):
     assert app.is_internal_change_allowed() is True
 
     # Record an external change now and set timeout to 120 seconds
-    app._external_change_timestamp = datetime.now(timezone.utc)
+    app._external_change_timestamp = datetime.now().astimezone()
     app._external_change_timeout = 120
     rem = app.get_remaining_seconds_before_internal_change_is_allowed()
     assert rem <= 120 and rem >= 0

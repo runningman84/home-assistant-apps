@@ -12,9 +12,9 @@ Key configuration keys:
 See module docstring and inline examples for usage.
 """
 
-from base import BaseApp
 import inspect
 
+from base import BaseApp
 
 
 class FrigateControl(BaseApp):
@@ -92,41 +92,35 @@ class FrigateControl(BaseApp):
             self.log(f"Doing nothing: Internal change is not allowed for {remaining_seconds:.0f}s.")
             return
 
-        if self._auto_turn_on_motion:
-            if(self.count_motion_sensors("on") > 0 and self.count_motion_sensors() > 0):
-                self.log("Turning on frigate because there is motion")
-                self.turn_on_frigate()
-                return
+        if self._auto_turn_on_motion and self.count_motion_sensors("on") > 0 and self.count_motion_sensors() > 0:
+            self.log("Turning on frigate because there is motion")
+            self.turn_on_frigate()
+            return
 
-        if self._auto_turn_on_opening:
-            if(self.count_opening_sensors("on") > 0 and self.count_opening_sensors() > 0):
-                self.log("Turning on frigate because doors or windows are open")
-                self.turn_on_frigate()
-                return
+        if self._auto_turn_on_opening and self.count_opening_sensors("on") > 0 and self.count_opening_sensors() > 0:
+            self.log("Turning on frigate because doors or windows are open")
+            self.turn_on_frigate()
+            return
 
-        if self._auto_turn_on_alarm:
-            if(self.is_alarm_triggered() or self.is_alarm_arming() or self.is_alarm_pending() or self.is_alarm_armed()):
-                self.log("Turning on frigate because alarm is triggered, arming, pending or armed")
-                self.turn_on_frigate()
-                return
+        if self._auto_turn_on_alarm and (self.is_alarm_triggered() or self.is_alarm_arming() or self.is_alarm_pending() or self.is_alarm_armed()):
+            self.log("Turning on frigate because alarm is triggered, arming, pending or armed")
+            self.turn_on_frigate()
+            return
 
-        if self._auto_turn_off_motion:
-            if(self.count_motion_sensors("off") == self.count_motion_sensors() and self.count_motion_sensors() > 0):
-                self.log("Turning off frigate because there is no motion")
-                self.turn_off_frigate()
-                return
+        if self._auto_turn_off_motion and self.count_motion_sensors("off") == self.count_motion_sensors() and self.count_motion_sensors() > 0:
+            self.log("Turning off frigate because there is no motion")
+            self.turn_off_frigate()
+            return
 
-        if self._auto_turn_off_opening:
-            if(self.count_opening_sensors("off") == self.count_opening_sensors() and self.count_opening_sensors() > 0):
-                self.log("Turning off frigate because doors or windows are closed")
-                self.turn_off_frigate()
-                return
+        if self._auto_turn_off_opening and self.count_opening_sensors("off") == self.count_opening_sensors() and self.count_opening_sensors() > 0:
+            self.log("Turning off frigate because doors or windows are closed")
+            self.turn_off_frigate()
+            return
 
-        if self._auto_turn_off_alarm:
-            if(self.is_alarm_disarmed()):
-                self.log("Turning off frigate because alarm is disarmed")
-                self.turn_off_frigate()
-                return
+        if self._auto_turn_off_alarm and self.is_alarm_disarmed():
+            self.log("Turning off frigate because alarm is disarmed")
+            self.turn_off_frigate()
+            return
 
     def periodic_time_callback(self, kwargs):
         """

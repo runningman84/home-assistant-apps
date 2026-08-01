@@ -26,9 +26,9 @@ light_switch:
 See module docstring and inline examples for usage.
 """
 
-import appdaemon.plugins.hass.hassapi as hass
 import inspect
 
+import appdaemon.plugins.hass.hassapi as hass
 
 
 class LightSwitch(hass.Hass):

@@ -30,14 +30,14 @@ def test_setup_branches_sleep_and_turn_on():
     app.get_last_motion = lambda: 0.0
     # ensure prefixes exist so send_mqtt will call the mqtt service
     # note: class uses double-underscore attribute so it is name-mangled
-    setattr(app, '_AwtrixControl__awtrix_prefixes', ['awtrix/test'])
+    app._AwtrixControl__awtrix_prefixes = ['awtrix/test']
     app.setup()
     assert any(c[0] == 'mqtt/publish' for c in calls)
 
 def test_setup_sleep_on_night_and_no_motion():
     app, calls = make_awtrix_app()
     # ensure name-mangled prefixes exist so send_mqtt calls mqtt/publish
-    setattr(app, '_AwtrixControl__awtrix_prefixes', ['awtrix/test'])
+    app._AwtrixControl__awtrix_prefixes = ['awtrix/test']
 
     # night window branch -> should call sleep (mqtt publish)
     app.is_time_in_night_window = lambda: True
@@ -55,7 +55,7 @@ def test_setup_sleep_on_night_and_no_motion():
 
 
 def test_periodic_and_sensor_callbacks_invoke_setup():
-    app, calls = make_awtrix_app()
+    app, _ = make_awtrix_app()
 
     invoked = []
     app.setup = lambda: invoked.append('setup')

@@ -21,10 +21,10 @@ waste_reminder:
 See module docstring and inline examples for usage.
 """
 
-from base import BaseApp
 import inspect
 from datetime import datetime, timedelta
 
+from base import BaseApp
 
 
 class WasteReminder(BaseApp):
@@ -60,7 +60,7 @@ class WasteReminder(BaseApp):
 
     def seconds_until_tomorrow(self):
         """Return number of seconds remaining until the start of the next day."""
-        now = datetime.now()
+        now = datetime.now().astimezone()
         tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         return int((tomorrow - now).total_seconds())
 
@@ -86,9 +86,10 @@ class WasteReminder(BaseApp):
         # Ensure waste_start_time is valid before parsing
         if waste_start_time:
             # Convert string to datetime
-            collection_date = datetime.strptime(waste_start_time, "%Y-%m-%d %H:%M:%S").date()
-            today = datetime.now().date()
-            tomorrow = datetime.now().date() + timedelta(days=1)
+            local_tz = datetime.now().astimezone().tzinfo
+            collection_date = datetime.strptime(waste_start_time, "%Y-%m-%d %H:%M:%S").replace(tzinfo=local_tz).date()
+            today = datetime.now().astimezone().date()
+            tomorrow = datetime.now().astimezone().date() + timedelta(days=1)
 
             # If waste collection is tomorrow, send a notification
             if collection_date == tomorrow:

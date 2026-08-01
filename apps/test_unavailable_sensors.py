@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 
 
 def test_check_sensor_ignored_when_currently_unavailable_within_timeout(make_alarm_with_maps):
@@ -9,7 +9,7 @@ def test_check_sensor_ignored_when_currently_unavailable_within_timeout(make_ala
 
     app = make_alarm_with_maps(device_class_map, state_map, sensors)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now().astimezone()
     # became unavailable 5 seconds ago, timeout is 10s
     app._sensors_unavailable = {'s1': {'start': now - timedelta(seconds=5), 'end': None}}
 
@@ -24,7 +24,7 @@ def test_check_sensor_ignored_when_recently_became_available(make_alarm_with_map
 
     app = make_alarm_with_maps(device_class_map, state_map, sensors)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now().astimezone()
     # unavailable period ended 5 seconds ago, timeout is 10s
     app._sensors_unavailable = {'s2': {'start': now - timedelta(seconds=20), 'end': now - timedelta(seconds=5)}}
 
@@ -39,7 +39,7 @@ def test_check_sensor_not_ignored_when_unavailability_older_than_timeout(make_al
 
     app = make_alarm_with_maps(device_class_map, state_map, sensors)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now().astimezone()
     # unavailable period ended 20 seconds ago, timeout is 10s
     app._sensors_unavailable = {'s3': {'start': now - timedelta(seconds=200), 'end': now - timedelta(seconds=20)}}
 

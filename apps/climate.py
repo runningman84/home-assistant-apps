@@ -10,10 +10,24 @@ Main features:
 Key configuration keys (extracted from implementation):
 - climate_controls: list of climate entity ids to manage (required).
 - external_temperature_sensor / outside_temperature_sensor: optional sensor ids used for logic.
-- home_temperature, night_temperature, away_temperature, vacation_temperature, motion_temperature: numeric targets.
-- *_temperature_control: optional entity ids (number/select) used to change the respective temperature via UI.
+- home_temperature, night_temperature, away_temperature, vacation_temperature, motion_temperature: numeric targets for heating mode.
+- home_temperature_cooling, night_temperature_cooling, etc.: numeric targets for cooling mode (defaults to cooling_temperature if not set).
+- cooling_temperature: default cooling target (default: 22°C, used when status-specific cooling temperature not configured).
+- *_hvac_mode: HVAC mode for heating (e.g., home_hvac_mode, default: 'heat').
+- *_hvac_mode_cooling: HVAC mode for cooling (e.g., home_hvac_mode_cooling, default: 'cool').
+- *_temperature_control: optional entity id (number/select) to change heating temperature via UI for that status.
+- *_temperature_control_cooling: optional entity id (number/select) to change cooling temperature via UI for that status.
+- min_temperature_heating, max_temperature_heating: temperature bounds for heating (default: 7°C - 30°C).
+- min_temperature_cooling, max_temperature_cooling: temperature bounds for cooling (default: 16°C - 30°C).
+- offset_temperature_heating, offset_temperature_cooling: static temperature offsets for calibration (default: 0°C).
+- enable_pid: enable PID controller for dynamic temperature adjustment (default: false).
+- pid_kp, pid_ki, pid_kd: PID controller gains (defaults: 1.0, 0.1, 0.05).
+- pid_output_limit: maximum PID offset in °C (default: 5.0).
 - aqi_sensor, voc_sensor, co2_sensor: optional air-quality sensors and thresholds (aqi_threshold, voc_threshold, co2_threshold).
-- summer_temperature_threshold, summer_temperature: thresholds and target for summer behavior.
+- summer_temperature_threshold: threshold for summer detection (used for cooling activation logic).
+- min_outside_temperature_for_cooling: minimum outside temperature required to enable cooling (default: 22°C).
+- min_inside_temperature_for_cooling: minimum inside temperature required to enable cooling (default: 21°C).
+- overdrive_mode, overdrive_heating_temperature, overdrive_cooling_temperature: aggressive heating/cooling targets.
 - night_start, night_end, night_start_workday, night_end_workday: configurable night windows (in BaseApp defaults).
 
 Example:
@@ -25,17 +39,56 @@ climate_control:
         - climate.living_room
     opening_sensors:
         - binary_sensor.window_living
+    # Heating temperatures for each status
     home_temperature: 21
     away_temperature: 17
     vacation_temperature: 15
+    night_temperature: 18            # Optional: defaults shown in code
+    motion_temperature: 21           # Optional: defaults shown in code
+    # Cooling temperatures for each status (optional, falls back to cooling_temperature)
+    home_temperature_cooling: 22     # Optional: cooling target for home status
+    away_temperature_cooling: 24     # Optional: cooling target for away status
+    night_temperature_cooling: 23    # Optional: cooling target for night status
+    # Default cooling temperature (used when status-specific cooling temp not configured)
+    cooling_temperature: 22          # Optional: default cooling target (default: 22°C)
+    # Optional: HVAC modes for heating (default: 'heat')
+    home_hvac_mode: heat
+    away_hvac_mode: heat
+    # Optional: HVAC modes for cooling (default: 'cool')
+    home_hvac_mode_cooling: cool
+    away_hvac_mode_cooling: off      # Turn off cooling when away to save energy
+    # Optional: UI controls for heating temperatures
+    home_temperature_control: input_number.climate_home_heating
+    # Optional: UI controls for cooling temperatures
+    home_temperature_control_cooling: input_number.climate_home_cooling
+    min_temperature_heating: 7       # Optional: minimum for heating (default: 7°C)
+    max_temperature_heating: 30      # Optional: maximum for heating (default: 30°C)
+    min_temperature_cooling: 16      # Optional: minimum for cooling (default: 16°C)
+    max_temperature_cooling: 30      # Optional: maximum for cooling (default: 30°C)
+    offset_temperature_heating: -2   # Optional: calibration offset for heating (default: 0°C)
+    offset_temperature_cooling: 0    # Optional: calibration offset for cooling (default: 0°C)
+    # Optional: Enable PID controller for dynamic temperature adjustment (disabled by default)
+    enable_pid: false                # Default: false - set to true to enable
+    pid_kp: 1.0                      # Default: 1.0 - Proportional gain
+    pid_ki: 0.1                      # Default: 0.1 - Integral gain
+    pid_kd: 0.05                     # Default: 0.05 - Derivative gain
+    pid_output_limit: 5.0            # Default: 5.0 - Maximum PID offset in °C
+    # Optional: Enable overdrive for aggressive heating/cooling
+    overdrive_mode: true
+    overdrive_heating_temperature: 30  # Used when HVAC mode is 'heat'
+    overdrive_cooling_temperature: 16  # Used when HVAC mode is 'cool'
+    # Optional: Prevent cooling if temperatures are below thresholds
+    min_outside_temperature_for_cooling: 22  # Default: 22°C
+    min_inside_temperature_for_cooling: 21   # Default: 21°C
 ```
 
 See module docstring and inline examples for usage.
 """
 
-from base import BaseApp
 import inspect
+from datetime import datetime
 
+from base import BaseApp
 
 
 class ClimateControl(BaseApp):
@@ -55,9 +108,17 @@ class ClimateControl(BaseApp):
         self._fan_overheat_temperature = float(self.args.get("fan_overheat_temperature", 22))
         self._summer_temperature_threshold = float(self.args.get("summer_temperature_threshold", 15))
         self._summer_temperature_threshold_tomorrow = float(self.args.get("summer_temperature_threshold_tomorrow", self._summer_temperature_threshold + 3))
+        self._min_outside_temperature_for_cooling = float(self.args.get("min_outside_temperature_for_cooling", 23.0))
+        self._min_inside_temperature_for_cooling = float(self.args.get("min_inside_temperature_for_cooling", 20))
 
-        self._min_temperature = float(self.args.get("min_temperature", 7))
-        self._max_temperature = float(self.args.get("max_temperature", 30))
+        # Temperature bounds - separate for heating and cooling
+        self._min_temperature_heating = float(self.args.get("min_temperature_heating", 7))
+        self._max_temperature_heating = float(self.args.get("max_temperature_heating", 30))
+        self._min_temperature_cooling = float(self.args.get("min_temperature_cooling", 16))
+        self._max_temperature_cooling = float(self.args.get("max_temperature_cooling", 30))
+        
+        self._cooling_temperature = float(self.args.get("cooling_temperature", 22))
+        self._cooling_temperature_control = self.args.get("cooling_temperature_control", None)
 
         self._aqi_sensor = self.args.get("aqi_sensor", None)
         self._aqi_threshold = int(self.args.get("aqi_threshold", 50))
@@ -72,7 +133,29 @@ class ClimateControl(BaseApp):
 
         self._cleanup_air_at_night = self.args.get("cleanup_air_at_night", True)
 
-        self._offset_temperature = float(self.args.get("offset_temperature", 0))
+        # Temperature offsets for calibration - separate for heating and cooling
+        self._offset_temperature_heating = float(self.args.get("offset_temperature_heating", 0))
+        self._offset_temperature_cooling = float(self.args.get("offset_temperature_cooling", 0))
+        
+        # PID controller configuration
+        self._enable_pid = bool(self.args.get("enable_pid", False))
+        self._pid_kp = float(self.args.get("pid_kp", 1.0))
+        self._pid_ki = float(self.args.get("pid_ki", 0.1))
+        self._pid_kd = float(self.args.get("pid_kd", 0.05))
+        self._pid_output_limit = float(self.args.get("pid_output_limit", 6.0))
+        
+        # PID state tracking per climate control
+        self._pid_state = {}
+        for climate_control in self._climate_controls:
+            self._pid_state[climate_control] = {
+                'integral': 0.0,
+                'last_error': 0.0,
+                'last_time': None,
+                'last_status': None,
+                'last_hvac_mode': None
+            }
+        
+        # Heating temperatures, controls, and HVAC modes for each status
         self._motion_temperature = float(self.args.get("motion_temperature", 21))
         self._motion_temperature_control = self.args.get("motion_temperature_control", None)
         self._motion_hvac_mode = self.args.get("motion_hvac_mode", "heat")
@@ -92,25 +175,50 @@ class ClimateControl(BaseApp):
         self._open_temperature = float(self.args.get("open_temperature", 16))
         self._open_hvac_mode = self.args.get("open_hvac_mode", "off")
         self._open_temperature_control = self.args.get("open_temperature_control", None)
-        self._summer_temperature = float(self.args.get("summer_temperature", 7))
-        self._summer_hvac_mode = self.args.get("summer_hvac_mode", "off")
-        self._summer_temperature_control = self.args.get("summer_temperature_control", None)
+        
+        # Cooling HVAC modes for each status (defaults to 'cool')
+        self._motion_hvac_mode_cooling = self.args.get("motion_hvac_mode_cooling", "cool")
+        self._home_hvac_mode_cooling = self.args.get("home_hvac_mode_cooling", "cool")
+        self._night_hvac_mode_cooling = self.args.get("night_hvac_mode_cooling", "cool")
+        self._away_hvac_mode_cooling = self.args.get("away_hvac_mode_cooling", "cool")
+        self._vacation_hvac_mode_cooling = self.args.get("vacation_hvac_mode_cooling", "off")
+        self._open_hvac_mode_cooling = self.args.get("open_hvac_mode_cooling", "off")
+        
+        # Cooling temperatures and controls for each status (defaults to cooling_temperature if not set)
+        self._motion_temperature_cooling = float(self.args.get("motion_temperature_cooling", self._cooling_temperature))
+        self._motion_temperature_control_cooling = self.args.get("motion_temperature_control_cooling", None)
+        self._home_temperature_cooling = float(self.args.get("home_temperature_cooling", self._cooling_temperature))
+        self._home_temperature_control_cooling = self.args.get("home_temperature_control_cooling", None)
+        self._night_temperature_cooling = float(self.args.get("night_temperature_cooling", self._cooling_temperature))
+        self._night_temperature_control_cooling = self.args.get("night_temperature_control_cooling", None)
+        self._away_temperature_cooling = float(self.args.get("away_temperature_cooling", self._cooling_temperature))
+        self._away_temperature_control_cooling = self.args.get("away_temperature_control_cooling", None)
+        self._vacation_temperature_cooling = float(self.args.get("vacation_temperature_cooling", self._cooling_temperature))
+        self._vacation_temperature_control_cooling = self.args.get("vacation_temperature_control_cooling", None)
+        self._open_temperature_cooling = float(self.args.get("open_temperature_cooling", self._cooling_temperature))
+        self._open_temperature_control_cooling = self.args.get("open_temperature_control_cooling", None)
 
-        self._overdrive_temperature = float(self.args.get("overdrive_temperature", 30))
+        self._overdrive_heating_temperature = float(self.args.get("overdrive_heating_temperature", 30))
+        self._overdrive_cooling_temperature = float(self.args.get("overdrive_cooling_temperature", 16))
         self._overdrive_mode = bool(self.args.get("overdrive_mode", False))
 
         self.log("=== Climate Control Configuration ===")
         self.log(f"Climate controls: {self._climate_controls}")
         self.log(f"External temperature sensor: {self._external_temperature_sensor}")
         self.log(f"Outside temperature sensor: {self._outside_temperature_sensor}")
-        self.log(f"Offset temperature: {self._offset_temperature}")
+        self.log(f"Offset temperature heating: {self._offset_temperature_heating}°C")
+        self.log(f"Offset temperature cooling: {self._offset_temperature_cooling}°C")
+        self.log(f"PID controller: {'Enabled' if self._enable_pid else 'Disabled'}")
+        if self._enable_pid:
+            self.log(f"PID parameters: Kp={self._pid_kp}, Ki={self._pid_ki}, Kd={self._pid_kd}, Limit=±{self._pid_output_limit}°C")
         self.log(f"Max overheat allowance: {self._max_overheat_allowance}")
         self.log(f"Fan overheat temperature: {self._fan_overheat_temperature}°C")
-        self.log(f"Minimum temperature: {self._min_temperature}°C")
-        self.log(f"Maximum temperature: {self._max_temperature}°C")
+        self.log(f"Temperature bounds heating: {self._min_temperature_heating}°C - {self._max_temperature_heating}°C")
+        self.log(f"Temperature bounds cooling: {self._min_temperature_cooling}°C - {self._max_temperature_cooling}°C")
+        self.log(f"Cooling temperature: {self._cooling_temperature}°C, Control: {self._cooling_temperature_control}")
         self.log(f"Internal change timeout: {self._internal_change_timeout}s")
         self.log(f"External change timeout: {self._external_change_timeout}s")
-        self.log(f"Overdrive mode: {self._overdrive_mode}, target: {self._overdrive_temperature}°C")
+        self.log(f"Overdrive mode: {self._overdrive_mode}, heating target: {self._overdrive_heating_temperature}°C, cooling target: {self._overdrive_cooling_temperature}°C")
 
         self.log("--- Air Quality Sensors ---")
         self.log(f"AQI sensor: {self._aqi_sensor}, threshold: {self._aqi_threshold}")
@@ -120,15 +228,17 @@ class ClimateControl(BaseApp):
         self.log("--- Seasonal Settings ---")
         self.log(f"Summer temperature threshold (today): {self._summer_temperature_threshold}°C")
         self.log(f"Summer temperature threshold (tomorrow): {self._summer_temperature_threshold_tomorrow}°C")
-        self.log(f"Summer mode: {self._summer_hvac_mode}, target: {self._summer_temperature}°C (control: {self._summer_temperature_control})")
+        self.log(f"Min outside temperature for cooling: {self._min_outside_temperature_for_cooling}°C")
+        self.log(f"Min inside temperature for cooling: {self._min_inside_temperature_for_cooling}°C")
+        self.log("Summer detection: Used for cooling activation logic only, not a status")
 
         self.log("--- Temperature Modes ---")
-        self.log(f"Home: {self.get_desired_temperature_by_status('home')}°C, HVAC: {self._home_hvac_mode}, Control: {self._home_temperature_control}")
-        self.log(f"Night: {self.get_desired_temperature_by_status('night')}°C, HVAC: {self._night_hvac_mode}, Control: {self._night_temperature_control}")
-        self.log(f"Away: {self.get_desired_temperature_by_status('away')}°C HVAC: {self._away_hvac_mode}, Control: {self._away_temperature_control}")
-        self.log(f"Vacation: {self.get_desired_temperature_by_status('vacation')}°C, HVAC: {self._vacation_hvac_mode}, Control: {self._vacation_temperature_control}")
-        self.log(f"Open-window: {self.get_desired_temperature_by_status('open')}°C, HVAC: {self._open_hvac_mode}, Control: {self._open_temperature_control}")
-        self.log(f"Motion: {self.get_desired_temperature_by_status('motion')}°C, HVAC: {self._motion_hvac_mode}, Duration: {self._motion_duration}s, Control: {self._motion_temperature_control}")
+        self.log(f"Home: Heat={self._home_temperature}°C/{self._home_hvac_mode} Cool={self._home_temperature_cooling}°C/{self._home_hvac_mode_cooling}, Control: {self._home_temperature_control}/{self._home_temperature_control_cooling}")
+        self.log(f"Night: Heat={self._night_temperature}°C/{self._night_hvac_mode} Cool={self._night_temperature_cooling}°C/{self._night_hvac_mode_cooling}, Control: {self._night_temperature_control}/{self._night_temperature_control_cooling}")
+        self.log(f"Away: Heat={self._away_temperature}°C/{self._away_hvac_mode} Cool={self._away_temperature_cooling}°C/{self._away_hvac_mode_cooling}, Control: {self._away_temperature_control}/{self._away_temperature_control_cooling}")
+        self.log(f"Vacation: Heat={self._vacation_temperature}°C/{self._vacation_hvac_mode} Cool={self._vacation_temperature_cooling}°C/{self._vacation_hvac_mode_cooling}, Control: {self._vacation_temperature_control}/{self._vacation_temperature_control_cooling}")
+        self.log(f"Open-window: Heat={self._open_temperature}°C/{self._open_hvac_mode} Cool={self._open_temperature_cooling}°C/{self._open_hvac_mode_cooling}, Control: {self._open_temperature_control}/{self._open_temperature_control_cooling}")
+        self.log(f"Motion: Heat={self._motion_temperature}°C/{self._motion_hvac_mode} Cool={self._motion_temperature_cooling}°C/{self._motion_hvac_mode_cooling}, Duration: {self._motion_duration}s, Control: {self._motion_temperature_control}/{self._motion_temperature_control_cooling}")
 
         self.log("--- Status Overview ---")
         self.log(f"Current system status: {self.get_current_status()}")
@@ -170,12 +280,22 @@ class ClimateControl(BaseApp):
             self.listen_state(self.sensor_change_callback, sensor,
                                 new="on", old="off")
 
-        # change based on settings in gui
+        # change based on settings in gui - heating controls
         for temptype in ['home', 'away', 'vacation', 'open', 'motion', 'night']:
-            if vars(self)['_' + temptype + '_temperature_control'] is None:
-                continue
-            self.log(f"Listening for {vars(self)['_' + temptype + '_temperature_control']}")
-            self.listen_state(self.sensor_change_callback, vars(self)['_' + temptype + '_temperature_control'] )
+            if vars(self)['_' + temptype + '_temperature_control'] is not None:
+                self.log(f"Listening for {vars(self)['_' + temptype + '_temperature_control']}")
+                self.listen_state(self.sensor_change_callback, vars(self)['_' + temptype + '_temperature_control'] )
+        
+        # change based on settings in gui - cooling controls
+        for temptype in ['home', 'away', 'vacation', 'open', 'motion', 'night']:
+            if vars(self)['_' + temptype + '_temperature_control_cooling'] is not None:
+                self.log(f"Listening for {vars(self)['_' + temptype + '_temperature_control_cooling']}")
+                self.listen_state(self.sensor_change_callback, vars(self)['_' + temptype + '_temperature_control_cooling'] )
+        
+        # listen for default cooling temperature control changes
+        if self._cooling_temperature_control is not None:
+            self.log(f"Listening for {self._cooling_temperature_control}")
+            self.listen_state(self.sensor_change_callback, self._cooling_temperature_control)
 
         # change based on climate control
         for climate_control in self._climate_controls:
@@ -232,10 +352,7 @@ class ClimateControl(BaseApp):
         if self.get_external_temperature() is None:
             return False
 
-        if self.get_external_temperature() > self.get_desired_temperature() + self._max_overheat_allowance:
-            return True
-        
-        return False
+        return self.get_external_temperature() > self.get_desired_temperature() + self._max_overheat_allowance
 
     def is_cooling(self, entity_id):
         """Return True if the given entity is currently in cooling mode.
@@ -246,23 +363,16 @@ class ClimateControl(BaseApp):
         Returns:
             bool
         """
-        if self.get_current_hvac_mode(entity_id) == 'cool':
-            return True
-        
-        return False
+        return self.get_current_hvac_mode(entity_id) == 'cool'
 
     def is_summer(self):
         """Return True when outside/forecast temperatures indicate 'summer' mode.
 
         Compares current/forecasted temperatures to configured summer thresholds.
         """
-        if self.get_outside_temperature() > self._summer_temperature_threshold:
-            return True
-        if self.get_max_outside_temperature_today() > self._summer_temperature_threshold:
-            return True
-        if self.get_max_outside_temperature_tomorrow() > self._summer_temperature_threshold_tomorrow:
-            return True
-        return False
+        return (self.get_outside_temperature() > self._summer_temperature_threshold or
+                self.get_max_outside_temperature_today() > self._summer_temperature_threshold or
+                self.get_max_outside_temperature_tomorrow() > self._summer_temperature_threshold_tomorrow)
 
     def is_aqi_okay(self):
         """Return True if AQI measurement is below configured threshold.
@@ -273,10 +383,7 @@ class ClimateControl(BaseApp):
         if value_sensor is None:
             return True
 
-        if int(value_sensor) > self._aqi_threshold:
-            return False
-
-        return True
+        return not int(value_sensor) > self._aqi_threshold
 
     def is_voc_okay(self):
         """Return True if VOC measurement is below configured threshold.
@@ -287,10 +394,7 @@ class ClimateControl(BaseApp):
         if value_sensor is None:
             return True
 
-        if int(value_sensor) > self._voc_threshold:
-            return False
-
-        return True
+        return not int(value_sensor) > self._voc_threshold
 
     def is_co2_okay(self):
         """Return True if CO2 measurement is below configured threshold.
@@ -301,37 +405,26 @@ class ClimateControl(BaseApp):
         if value_sensor is None:
             return True
 
-        if int(value_sensor) > self._co2_threshold:
-            return False
-
-        return True
+        return not int(value_sensor) > self._co2_threshold
 
     def in_guest_mode(self):
         """Return True when guest mode is enabled (via configured guest_control)."""
         if self._guest_control is None:
             return False
-        if self.get_state(self._guest_control) == 'on':
-            return True
-        else:
-            return False
+        return self.get_state(self._guest_control) == 'on'
 
     def in_vacation_mode(self):
         """Return True when vacation mode is active (via configured vacation_control)."""
         if self._vacation_control is None:
             return False
-        if self.get_state(self._vacation_control) == 'on':
-            return True
-        else:
-            return False
+        return self.get_state(self._vacation_control) == 'on'
 
     def get_current_status(self):
         """Determine the current climate status string.
 
-        Possible return values: 'summer', 'open', 'vacation', 'night', 'home', 'away', 'motion'.
+        Possible return values: 'open', 'vacation', 'night', 'home', 'away', 'motion'.
         """
-        if self.is_summer():
-            return "summer"
-        elif(self.count_on_opening_sensors() > 0):
+        if(self.count_on_opening_sensors() > 0):
             return "open"
         elif(self.in_vacation_mode()):
             return "vacation"
@@ -355,6 +448,8 @@ class ClimateControl(BaseApp):
             return None
         if value_sensor == 'unavailable':
             return None
+        if value_sensor is None:
+            return None
 
         return int(value_sensor)
 
@@ -367,6 +462,8 @@ class ClimateControl(BaseApp):
         if value_sensor == 'unknown':
             return None
         if value_sensor == 'unavailable':
+            return None
+        if value_sensor is None:
             return None
 
         return int(value_sensor)
@@ -381,6 +478,8 @@ class ClimateControl(BaseApp):
             return None
         if value_sensor == 'unavailable':
             return None
+        if value_sensor is None:
+            return None
 
         return int(value_sensor)
 
@@ -394,6 +493,8 @@ class ClimateControl(BaseApp):
             return None
         if value_sensor == 'unavailable':
             return None
+        if value_sensor is None:
+            return None
 
         return float(value_sensor)
 
@@ -406,6 +507,8 @@ class ClimateControl(BaseApp):
         if value_sensor == 'unknown':
             return None
         if value_sensor == 'unavailable':
+            return None
+        if value_sensor is None:
             return None
 
         return float(value_sensor)
@@ -462,55 +565,201 @@ class ClimateControl(BaseApp):
     def get_desired_temperature_by_status(self, status):
         """Return desired temperature for the given status.
 
+        Automatically determines whether to use heating or cooling temperature
+        based on summer detection (is_summer()).
+        
         The value is read from a temperature control entity when configured,
         otherwise from the configured default temperature for the status.
+        Does NOT apply offset - that's done in get_desired_target_temperature().
 
         Args:
             status (str): status name such as 'home', 'night', 'away', etc.
 
         Returns:
-            float or None: desired temperature (including offset) or None if not set.
+            float or None: desired temperature (without offset) or None if not set.
         """
-        if vars(self)['_' + status + '_temperature_control'] is None:
-            self.log(f"{'self._' + status + '_temperature_control'} is None", level="DEBUG")
-            if vars(self)['_' + status + '_temperature'] is None:
-                self.log(f"{'self._' + status + '_temperature'} is None", level="DEBUG")
-                return None
-            return float(vars(self)['_' + status+ '_temperature']) + float(self._offset_temperature)
-        else:
-            return float(self.get_state(vars(self)['_' + status + '_temperature_control'])) + float(self._offset_temperature)
+        # Determine which attribute suffix to use based on summer detection
+        suffix = '_cooling' if self.is_summer() else ''
+        
+        # Check for control entity first
+        control_attr = '_' + status + '_temperature_control' + suffix
+        if control_attr in vars(self) and vars(self)[control_attr] is not None:
+            return float(self.get_state(vars(self)[control_attr]))
+        
+        # Fall back to configured temperature
+        temp_attr = '_' + status + '_temperature' + suffix
+        if temp_attr in vars(self) and vars(self)[temp_attr] is not None:
+            return float(vars(self)[temp_attr])
+        
+        # If cooling temperature not configured, fall back to default cooling_temperature
+        # This maintains backward compatibility
+        if self.is_summer() and suffix == '_cooling':
+            self.log(f"No cooling temperature configured for {status}, using default cooling_temperature", level="DEBUG")
+            return self._cooling_temperature
+        
+        self.log(f"No temperature configured for status={status}", level="DEBUG")
+        return None
 
     def get_desired_temperature(self):
         """Return the effective desired temperature considering status, minimum, and maximum.
+
+        Automatically determines whether to use heating or cooling bounds
+        based on summer detection (is_summer()).
 
         Returns the desired temperature for the current status, bounded by the
         configured minimum and maximum temperature.
         """
         desired_temp = self.get_desired_temperature_by_status(self.get_current_status())
         if desired_temp is None:
-            return self._min_temperature
-
-        return float(min(max(desired_temp, self._min_temperature), self._max_temperature))
-
-    def get_desired_target_temperature(self):
-        """Return the desired target temperature without min/max bounds.
-
-        Returns the desired temperature for the current status, without applying
-        the configured minimum and maximum temperature limits.
-        """
-        desired_temp = self.get_desired_temperature()
-
-        if not self._overdrive_mode:
-            return desired_temp
-
-        if self.get_external_temperature() is None:
-            return desired_temp
+            return self._min_temperature_cooling if self.is_summer() else self._min_temperature_heating
         
         if self.is_summer():
-            return desired_temp
+            return float(min(max(desired_temp, self._min_temperature_cooling), self._max_temperature_cooling))
+        else:
+            return float(min(max(desired_temp, self._min_temperature_heating), self._max_temperature_heating))
 
-        if self.get_external_temperature() < desired_temp:
-            desired_temp = self._overdrive_temperature
+    def calculate_pid_offset(self, entity_id, current_temp, desired_temp, hvac_mode):
+        """Calculate PID controller offset for dynamic temperature adjustment.
+        
+        Args:
+            entity_id (str): climate entity id
+            current_temp (float): current measured temperature
+            desired_temp (float): desired target temperature (without PID)
+            hvac_mode (str): current HVAC mode
+            
+        Returns:
+            float: PID offset to add to the target temperature
+        """
+        if not self._enable_pid or entity_id not in self._pid_state:
+            return 0.0
+            
+        # Reset and return 0 if HVAC mode is off or fan_only (no active heating/cooling)
+        if hvac_mode in ['off', 'fan_only']:
+            pid_state = self._pid_state[entity_id]
+            if pid_state['integral'] != 0.0 or pid_state['last_error'] != 0.0:
+                self.log(f"[{entity_id}] PID: Resetting state due to inactive HVAC mode ({hvac_mode})", level="DEBUG")
+                pid_state['integral'] = 0.0
+                pid_state['last_error'] = 0.0
+                pid_state['last_time'] = None
+                pid_state['last_status'] = None
+                pid_state['last_hvac_mode'] = None
+            return 0.0
+            
+        current_status = self.get_current_status()
+        pid_state = self._pid_state[entity_id]
+        current_time = datetime.now().astimezone()
+        
+        # Reset PID state if status or HVAC mode changed
+        if (pid_state['last_status'] != current_status or 
+            pid_state['last_hvac_mode'] != hvac_mode):
+            self.log(f"[{entity_id}] PID: Resetting state due to status/mode change", level="DEBUG")
+            pid_state['integral'] = 0.0
+            pid_state['last_error'] = 0.0
+            pid_state['last_time'] = current_time
+            pid_state['last_status'] = current_status
+            pid_state['last_hvac_mode'] = hvac_mode
+            return 0.0
+            
+        # Calculate error (negative = too cold, positive = too hot)
+        error = current_temp - desired_temp
+        
+        # Initialize on first run
+        if pid_state['last_time'] is None:
+            pid_state['last_time'] = current_time
+            pid_state['last_error'] = error
+            return 0.0
+            
+        # Calculate time delta
+        dt = (current_time - pid_state['last_time']).total_seconds()
+        if dt <= 0:
+            return 0.0
+            
+        # PID calculations
+        # Proportional term
+        p_term = self._pid_kp * error
+        
+        # Integral term (accumulated error over time)
+        pid_state['integral'] += error * dt
+        # Anti-windup: limit integral to prevent excessive accumulation
+        max_integral = self._pid_output_limit / max(self._pid_ki, 0.001)
+        pid_state['integral'] = max(min(pid_state['integral'], max_integral), -max_integral)
+        i_term = self._pid_ki * pid_state['integral']
+        
+        # Derivative term (rate of change)
+        derivative = (error - pid_state['last_error']) / dt
+        d_term = self._pid_kd * derivative
+        
+        # Calculate total PID output
+        pid_output = p_term + i_term + d_term
+        
+        # Apply output limits
+        pid_output = max(min(pid_output, self._pid_output_limit), -self._pid_output_limit)
+        
+        # Update state
+        pid_state['last_error'] = error
+        pid_state['last_time'] = current_time
+        
+        self.log(f"[{entity_id}] PID: error={error:.2f}°C, P={p_term:.2f}, I={i_term:.2f}, D={d_term:.2f}, output={pid_output:.2f}°C", level="DEBUG")
+        
+        return pid_output
+
+    def get_desired_target_temperature(self, entity_id = None):
+        """Return the desired target temperature with mode-specific offset, PID control, and overdrive logic.
+
+        Applies the appropriate static offset and min/max bounds based on season (is_summer()),
+        then adds dynamic PID offset if enabled, and finally applies overdrive if configured.
+        
+        Args:
+            entity_id (str|None): optional climate entity id to determine the actual desired mode
+        """
+        # Use the computed desired HVAC mode (which considers overheating, air quality, etc.)
+        # not just the status-based mode
+        hvac_mode = self.get_desired_hvac_mode(entity_id)
+        
+        # Get base temperature with static offset and bounds applied
+        # Use is_summer() to determine which offset/bounds to apply (not hvac_mode)
+        # This ensures correct offset even when HVAC is 'off' or 'fan_only'
+        if self.is_summer():
+            # Cooling season: use cooling temps, offset, and bounds
+            raw_temp = self.get_desired_temperature_by_status(self.get_current_status())
+            if raw_temp is None:
+                raw_temp = self._min_temperature_cooling
+            base_temp = raw_temp + self._offset_temperature_cooling
+            # Apply cooling-specific min/max bounds
+            desired_temp = float(min(max(base_temp, self._min_temperature_cooling), self._max_temperature_cooling))
+        else:
+            # Heating season: use heating temps, offset, and bounds
+            raw_temp = self.get_desired_temperature_by_status(self.get_current_status())
+            if raw_temp is None:
+                raw_temp = self._min_temperature_heating
+            base_temp = raw_temp + self._offset_temperature_heating
+            # Apply heating-specific min/max bounds
+            desired_temp = float(min(max(base_temp, self._min_temperature_heating), self._max_temperature_heating))
+
+        # Apply PID controller adjustment if enabled and external temperature is available
+        if self._enable_pid and entity_id is not None and self.get_external_temperature() is not None:
+            current_temp = self.get_external_temperature()
+            # Calculate PID offset based on error (for heating: positive offset when too cold)
+            pid_offset = self.calculate_pid_offset(entity_id, current_temp, desired_temp, hvac_mode)
+            
+            # Apply PID offset for heating (positive offset when too cold, negative offset when too hot)
+            desired_temp_with_pid = desired_temp - pid_offset
+
+            if hvac_mode == 'cool':
+                # Re-apply bounds after PID adjustment (based on hvac_mode)
+                desired_temp = float(min(max(desired_temp_with_pid, self._min_temperature_cooling), self._max_temperature_cooling))
+            elif hvac_mode == 'heat':
+                # Re-apply bounds after PID adjustment (based on hvac_mode)
+                desired_temp = float(min(max(desired_temp_with_pid, self._min_temperature_heating), self._max_temperature_heating))
+
+        # Apply overdrive if enabled (overrides everything)
+        if self._overdrive_mode and self.get_external_temperature() is not None:
+            if hvac_mode == 'heat':
+                desired_temp = self._overdrive_heating_temperature
+                self.log(f"Overdrive heating active: targeting {desired_temp}°C", level="DEBUG")
+            elif hvac_mode == 'cool':
+                desired_temp = self._overdrive_cooling_temperature
+                self.log(f"Overdrive cooling active: targeting {desired_temp}°C", level="DEBUG")
 
         return desired_temp
     
@@ -530,39 +779,84 @@ class ClimateControl(BaseApp):
         return current_temp - desired_temp
 
     def get_desired_hvac_mode_by_status(self, status):
-        """Return the desired HVAC mode configured for a given status."""
+        """Return the desired HVAC mode configured for a given status.
+        
+        Automatically determines whether to use heating or cooling HVAC mode
+        based on summer detection (is_summer()).
+        
+        Args:
+            status (str): status name such as 'home', 'night', 'away', etc.
+            
+        Returns:
+            str: desired HVAC mode string (e.g., 'heat', 'cool', 'off', 'fan_only').
+        """
+        # Determine which attribute suffix to use based on summer detection
+        suffix = '_cooling' if self.is_summer() else ''
+        attr_name = '_' + status + '_hvac_mode' + suffix
+        
+        # Return the configured HVAC mode, falling back to heating mode if cooling not configured
+        if attr_name in vars(self):
+            return vars(self)[attr_name]
+        
+        # Fallback to heating mode for backward compatibility
         return vars(self)['_' + status + '_hvac_mode']
 
     def get_desired_hvac_mode(self, entity_id = None):
         """Compute desired HVAC mode for the current status and entity.
 
         The computed mode considers overheating, air quality and device fan support.
+        Automatically determines whether to use heating or cooling mode based on conditions.
 
         Args:
             entity_id (str|None): optional climate entity id used to check feature support.
 
         Returns:
-            str: desired hvac mode string.
+            str: desired HVAC mode string.
         """
+        # Get base desired mode (automatically uses summer detection internally)
         desired_mode = self.get_desired_hvac_mode_by_status(self.get_current_status())
 
         fan_supported = False
         if entity_id is not None:
             fan_supported = self.is_fan_mode_supported(entity_id, 'Auto')
 
-        if self.is_overheating():
-            if (
-                fan_supported
-                and self.is_somebody_at_home()
-                and self.count_on_opening_sensors() == 0
-                and self.get_external_temperature() > self._fan_overheat_temperature
-                and not self.is_summer()
-                and not self.is_time_in_night_window()
-            ):              
-                desired_mode = 'fan_only'
-            else:
+        cooling_supported = False
+        if entity_id is not None:
+            cooling_supported = self.is_hvac_mode_supported(entity_id, 'cool')
+
+
+        if self.is_summer():
+            # In summer, base mode might be 'cool', but we should only cool when actually needed
+            # If it's summer but not currently warm enough for cooling, default to 'off' instead
+            if (cooling_supported
+                and desired_mode == 'cool'
+                and self.get_external_temperature() is not None
+                and (
+                    self.get_external_temperature() < self._min_inside_temperature_for_cooling
+                    or self.get_outside_temperature() < self._min_outside_temperature_for_cooling
+                    or self.get_max_outside_temperature_today() < self._min_outside_temperature_for_cooling)
+                ):
                 desired_mode = 'off'
-            self.log(f"Setting desired hvac mode to off {desired_mode} to overheat", level="DEBUG")
+                self.log(f"Summer mode but too cold for cooling (inside: {self.get_external_temperature()}°C, outside: {self.get_outside_temperature()}°C), setting to off", level="DEBUG")
+            if (not cooling_supported):
+                desired_mode = 'off'
+                self.log("Summer mode but cooling not supported by device, setting to off", level="DEBUG")
+
+        else:
+            # In winter, if overheating is detected, we may want to turn off heating or use fan_only
+            if self.is_overheating():
+                # winter fan support to distribute heat when somebody is home and it is daytime
+                if (
+                    fan_supported
+                    and self.is_somebody_at_home()
+                    and self.get_external_temperature() > self._fan_overheat_temperature
+                    and not self.is_time_in_night_window()
+                ):
+                    desired_mode = 'fan_only'
+                else:
+                    desired_mode = 'off'
+
+                self.log(f"Setting desired HVAC mode to {desired_mode} to reduce overheat", level="DEBUG")
 
         if desired_mode == 'off' and fan_supported:
             # If air quality is poor, someone is home, no windows are open and
@@ -574,7 +868,7 @@ class ClimateControl(BaseApp):
             night_ok = (not self.is_time_in_night_window()) or self.is_cleanup_air_at_night_enabled()
 
             if air_bad and someone_home and windows_closed and night_ok:
-                self.log("Setting desired hvac mode to fan_only due to bad air", level="DEBUG")
+                self.log("Setting desired HVAC mode to fan_only due to bad air", level="DEBUG")
                 desired_mode = 'fan_only'
 
         return desired_mode
@@ -620,9 +914,8 @@ class ClimateControl(BaseApp):
         """
         desired_mode = "Auto"
 
-        if entity_id is not None:
-            if not self.is_fan_mode_supported(entity_id, 'Auto'):
-                return None
+        if entity_id is not None and not self.is_fan_mode_supported(entity_id, 'Auto'):
+            return None
 
         if self.is_time_in_night_window():
             return desired_mode
@@ -665,14 +958,14 @@ class ClimateControl(BaseApp):
     def set_optimal_fan_mode(self, entity_id):
         """Set the fan mode on the entity to the computed optimal value.
 
-        Performs support checks and avoids changes during cooling/summer.
+        Performs support checks.
         """
         if self.get_desired_fan_mode() is None:
             self.log(f"[{entity_id}] Cannot set optimal fan mode: Desired setting is None.", level="ERROR")
             return
 
-        if self.is_summer() and self.is_cooling(entity_id):
-            self.log(f"[{entity_id}] Cannot set optimal fan mode: Device is cooling during summer.")
+        if self.get_desired_hvac_mode(entity_id) == 'off':
+            self.log(f"[{entity_id}] Cannot set optimal fan mode: Desired HVAC mode is off.")
             return
 
         if self.get_current_fan_mode(entity_id) == self.get_desired_fan_mode(entity_id):
@@ -697,15 +990,26 @@ class ClimateControl(BaseApp):
         """Return the desired preset mode (defaults to 'quiet').
 
         Returns None if the entity doesn't support the desired preset.
+        Switches to 'powerful' when far from target temperature (>3°C difference).
+        At night, always stays 'quiet' to avoid noise.
         """
         desired_mode = "quiet"
 
-        if entity_id is not None:
-            if not self.is_preset_mode_supported(entity_id, 'quiet'):
-                return None
+        if entity_id is not None and not self.is_preset_mode_supported(entity_id, 'quiet'):
+            return None
+        
+        # At night, always use quiet mode to avoid noise
+        if self.is_time_in_night_window():
+            return desired_mode
             
         if self.get_external_temperature() is not None:
-            if self.get_desired_hvac_mode(entity_id) == 'heat' and self.get_temperature_difference(entity_id) < -3:
+            hvac_mode = self.get_desired_hvac_mode(entity_id)
+            temp_diff = self.get_temperature_difference(entity_id)
+            
+            # Use powerful mode when far from target:
+            # - Heating: when room is too cold (diff < -3)
+            # - Cooling: when room is too hot (diff > 3)
+            if hvac_mode == 'heat' and temp_diff < -3 or hvac_mode == 'cool' and temp_diff > 3:
                 desired_mode = "powerful"
 
         return desired_mode
@@ -716,8 +1020,8 @@ class ClimateControl(BaseApp):
             self.log(f"[{entity_id}] Cannot set optimal preset mode: Desired setting is None.")
             return
 
-        if self.is_summer() and self.is_cooling(entity_id):
-            self.log(f"[{entity_id}] Cannot set optimal preset mode: Device is cooling during summer.")
+        if self.get_desired_hvac_mode(entity_id) == 'off':
+            self.log(f"[{entity_id}] Cannot set optimal preset mode: Desired HVAC mode is off.")
             return
 
         if self.get_current_preset_mode(entity_id) == self.get_desired_preset_mode(entity_id):
@@ -737,15 +1041,11 @@ class ClimateControl(BaseApp):
     def set_optimal_hvac_mode(self, entity_id):
         """Apply the desired HVAC mode to the entity if it's supported and needed."""
         if self.get_desired_hvac_mode() is None:
-            self.log(f"[{entity_id}] Cannot set optimal hvac mode: Desired setting is None.", level="ERROR")
-            return
-
-        if self.is_summer() and self.is_cooling(entity_id):
-            self.log(f"[{entity_id}] Cannot set optimal hvac mode: Device is cooling during summer.")
+            self.log(f"[{entity_id}] Cannot set optimal HVAC mode: Desired setting is None.", level="ERROR")
             return
 
         if self.get_current_hvac_mode(entity_id) == self.get_desired_hvac_mode(entity_id):
-            self.log(f"[{entity_id}] Optimal hvac mode is already set.")
+            self.log(f"[{entity_id}] Optimal HVAC mode is already set.")
             return
 
         self.set_hvac_mode(entity_id, self.get_desired_hvac_mode(entity_id))
@@ -753,30 +1053,30 @@ class ClimateControl(BaseApp):
     def set_optimal_temperature(self, entity_id):
         """Enforce the desired temperature on the entity with safety checks.
 
-        Avoids making changes during cooling/summer or when the HVAC is off.
+        Avoids making changes when HVAC is off or in fan_only mode.
         Records the change as an internal change.
         """
         if self.get_desired_temperature() is None:
             self.log(f"[{entity_id}] Cannot set optimal temperature: Desired temperature is None.", level="ERROR")
             return
 
-        if self.is_summer() and self.is_cooling(entity_id):
-            self.log(f"[{entity_id}] Cannot set optimal temperature: Device is cooling during summer.")
+        if self.get_desired_hvac_mode(entity_id) == 'off':
+            self.log(f"[{entity_id}] Cannot set optimal temperature: Desired HVAC mode is off.")
             return
 
-        if self.get_desired_hvac_mode(entity_id) == 'off':
-            self.log(f"[{entity_id}] Cannot set optimal temperature: Desired hvac mode is off.")
+        if self.get_desired_hvac_mode(entity_id) == 'fan_only':
+            self.log(f"[{entity_id}] Cannot set optimal temperature: Desired HVAC mode is fan_only (temperature not applicable).")
             return
 
         # if self.is_overheating():
         #     self.log(f"[{entity_id}] Cannot set optimal temperature: Room is overheating.")
         #     return
 
-        if self.get_target_temperature(entity_id) == self.get_desired_target_temperature():
+        if self.get_target_temperature(entity_id) == self.get_desired_target_temperature(entity_id):
             self.log(f"[{entity_id}] Optimal temperature is already set.")
             return
 
-        self.set_temperature(entity_id, self.get_desired_target_temperature())
+        self.set_temperature(entity_id, self.get_desired_target_temperature(entity_id))
 
     def periodic_time_callback(self, kwargs):
         """Scheduled callback executed at configured times to trigger updates."""
@@ -796,11 +1096,11 @@ class ClimateControl(BaseApp):
             if attribute == 'temperature' and new == self.get_desired_temperature():
                 self.log("Ignoring externl change because it matches the desired temperature")
                 return
-            if attribute == 'temperature' and new == self._min_temperature and self.get_current_hvac_mode(entity) == 'off':
-                self.log("Ignoring externl change because it matches expected temperature for hvac mode moff")
-                return
+            # if attribute == 'temperature' and new == self._min_temperature_heating and self.get_current_hvac_mode(entity) == 'off':
+            #     self.log("Ignoring externl change because it matches expected temperature for HVAC mode off")
+            #     return
             if attribute == 'state' and new == self.get_desired_hvac_mode(entity):
-                self.log("Ignoring externl change because it matches the desired hvac mode")
+                self.log("Ignoring externl change because it matches the desired HVAC mode")
                 return
             if attribute == 'fan_mode' and new == self.get_desired_fan_mode(entity):
                 self.log("Ignoring externl change because it matches the desired fan mode")
@@ -826,7 +1126,8 @@ class ClimateControl(BaseApp):
         self.log("=== Updating climate controls ===")
         
         # Status and temperature overview
-        self.log(f"Status: {self.get_current_status()} | External: {self.get_external_temperature()}°C | Outside: {self.get_outside_temperature()}°C | Max today/tomorrow: {self.get_max_outside_temperature_today()}°C/{self.get_max_outside_temperature_tomorrow()}°C")
+        summer_status = "ON" if self.is_summer() else "OFF"
+        self.log(f"Status: {self.get_current_status()} | Summer: {summer_status} | External: {self.get_external_temperature()}°C | Desired: {self.get_desired_temperature()}°C | Outside: {self.get_outside_temperature()}°C | Max today/tomorrow: {self.get_max_outside_temperature_today()}°C/{self.get_max_outside_temperature_tomorrow()}°C")
         
         # Air quality measurements (only if available)
         air_quality = []
@@ -857,7 +1158,13 @@ class ClimateControl(BaseApp):
         for climate_control in self._climate_controls:
 
             # Temperature status
-            self.log(f"[{climate_control}] Temp: {self.get_current_temperature(climate_control)}°C (current) | {self.get_target_temperature(climate_control)}°C (target) | {self.get_desired_temperature()}°C (desired)")
+            desired_target = self.get_desired_target_temperature(climate_control)
+            self.log(f"[{climate_control}] Temp: {self.get_current_temperature(climate_control)}°C (current) | {self.get_target_temperature(climate_control)}°C (target) | {desired_target}°C (desired w/ offsets)")
+            
+            # Add PID info if enabled
+            if self._enable_pid and climate_control in self._pid_state:
+                pid_state = self._pid_state[climate_control]
+                self.log(f"[{climate_control}] PID: I={pid_state['integral']:.2f} | LastErr={pid_state['last_error']:.2f} | LastTime={pid_state['last_time']} | LastStatus={pid_state['last_status']} | LastHVAC={pid_state['last_hvac_mode']}")
 
             # HVAC mode status
             self.log(f"[{climate_control}] HVAC Mode: {self.get_current_hvac_mode(climate_control)} (current) → {self.get_desired_hvac_mode(climate_control)} (desired)")
@@ -874,8 +1181,8 @@ class ClimateControl(BaseApp):
                 self.log(f"[{climate_control}] {' | '.join(mode_info)}")
 
             if(self.is_internal_change_allowed()):
-                self.set_optimal_temperature(climate_control)
                 self.set_optimal_hvac_mode(climate_control)
+                self.set_optimal_temperature(climate_control)
                 if self.is_fan_mode_supported(climate_control):
                     self.set_optimal_fan_mode(climate_control)
                 if self.is_preset_mode_supported(climate_control):
@@ -929,7 +1236,7 @@ class ClimateControl(BaseApp):
 
         Args:
             entity_id (str): climate entity id.
-            hvac_mode (str): desired hvac mode.
+            hvac_mode (str): desired HVAC mode.
         """
         self.log(f"[{entity_id}] Changing hvac_mode from {self.get_current_hvac_mode(entity_id)} to {hvac_mode}")
 

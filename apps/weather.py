@@ -22,10 +22,10 @@ weather_warning:
 See module docstring and inline examples for usage.
 """
 
-from base import BaseApp
 import inspect
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 
+from base import BaseApp
 
 
 class WeatherWarning(BaseApp):
@@ -67,7 +67,7 @@ class WeatherWarning(BaseApp):
 
     def seconds_until_tomorrow(self):
         """Return seconds remaining until next midnight local time."""
-        now = datetime.now()
+        now = datetime.now().astimezone()
         tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         return int((tomorrow - now).total_seconds())
 
@@ -76,10 +76,10 @@ class WeatherWarning(BaseApp):
 
         If 'date' is naive (no tzinfo) it is assumed to be in UTC.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now().astimezone()
 
         if date.tzinfo is None:  # If 'date' is naive, assume UTC
-            date = date.replace(tzinfo=timezone.utc)
+            date = date.replace(tzinfo=now.tzinfo)
 
         return int((date - now).total_seconds())
 

@@ -24,7 +24,7 @@ def test_warnings_for_air_quality_and_overheating():
 
 
 def test_control_change_callback_ignores_matching_external_changes():
-    app, calls = make_climate_app()
+    app, _ = make_climate_app()
     # stub helpers
     app.is_current_change_external = lambda: True
     app.get_desired_temperature = lambda e=None: 20
@@ -37,7 +37,7 @@ def test_control_change_callback_ignores_matching_external_changes():
 
 
 def test_sensor_change_callback_triggers_update_climate():
-    app, calls = make_climate_app()
+    app, _ = make_climate_app()
     called = []
     app.update_climate = lambda: called.append('ok')
     app.sensor_change_callback('sensor.x', None, 'old', 'new', {})

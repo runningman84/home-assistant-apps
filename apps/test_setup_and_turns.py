@@ -28,7 +28,7 @@ def test_setup_turns_on_on_motion():
     app._auto_turn_on_motion = True
     app._frigate_cameras = ['c1']
     app._frigate_switches = ['s1']
-    app.count_motion_sensors = lambda state=None: 1 if state == 'on' else 1
+    app.count_motion_sensors = lambda state=None: 1
     app.turn_on_frigate = lambda: calls.append(('turn_on', 'frigate'))
 
     app.setup()

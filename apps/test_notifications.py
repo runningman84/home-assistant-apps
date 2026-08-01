@@ -1,5 +1,6 @@
-from tests.base.factories import make_base_app
 import json
+
+from tests.base.factories import make_base_app
 
 
 def test_notify_awtrix_and_reset_builds_json_and_calls_mqtt():
@@ -16,14 +17,14 @@ def test_notify_awtrix_and_reset_builds_json_and_calls_mqtt():
     assert len(publishes) == 2
 
     # first payload should be JSON with text and duration
-    topic1, kwargs1 = publishes[0]
+    _, kwargs1 = publishes[0]
     assert kwargs1["topic"] == "awtrix_prefix/custom/TestApp"
     payload1 = json.loads(kwargs1.get("payload")) if isinstance(kwargs1.get("payload"), str) else {}
     assert payload1.get("text") == "hello world"
     assert payload1.get("duration") == 5
 
     # second payload is the reset (empty object)
-    topic2, kwargs2 = publishes[1]
+    _, kwargs2 = publishes[1]
     assert kwargs2["topic"] == "awtrix_prefix/custom/TestApp"
     payload2 = json.loads(kwargs2.get("payload")) if isinstance(kwargs2.get("payload"), str) else None
     assert payload2 == {}

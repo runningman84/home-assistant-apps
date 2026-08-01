@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 
 def test_get_night_times_non_workday(make_base_app, monkeypatch):
@@ -47,7 +47,7 @@ def test_get_seconds_until_night_end_future(make_base_app, monkeypatch):
     app = make_base_app()
 
     # Set a night_end a minute from now
-    now = datetime.now(timezone.utc)
+    now = datetime.now().astimezone()
     future_time = (now + timedelta(minutes=1)).time().strftime("%H:%M:%S")
 
     monkeypatch.setattr(app, "get_night_times", lambda: ("00:00:00", future_time))
@@ -62,7 +62,7 @@ def test_get_seconds_until_night_end_past(make_base_app, monkeypatch):
     app = make_base_app()
 
     # Set a night_end earlier than now (yesterday) so the function rolls it to next day
-    now = datetime.now(timezone.utc)
+    now = datetime.now().astimezone()
     past_time = (now - timedelta(hours=1)).time().strftime("%H:%M:%S")
     monkeypatch.setattr(app, "get_night_times", lambda: ("00:00:00", past_time))
 
@@ -79,8 +79,9 @@ def _make_now_is_between_for_fixed_time(fixed_time):
     from datetime import datetime
 
     def _now_is_between(start_str, end_str):
-        start_t = datetime.strptime(start_str, "%H:%M:%S").time()
-        end_t = datetime.strptime(end_str, "%H:%M:%S").time()
+        local_tz = datetime.now().astimezone().tzinfo
+        start_t = datetime.strptime(start_str, "%H:%M:%S").replace(tzinfo=local_tz).time()
+        end_t = datetime.strptime(end_str, "%H:%M:%S").replace(tzinfo=local_tz).time()
 
         if start_t <= end_t:
             return start_t <= fixed_time < end_t

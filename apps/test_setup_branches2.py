@@ -8,7 +8,7 @@ def test_setup_turns_on_on_opening():
     app._frigate_cameras = ['c1']
     app._frigate_switches = ['s1']
     # count_opening_sensors('on') > 0 and count_opening_sensors() > 0
-    app.count_opening_sensors = lambda state=None: 1 if state == 'on' else 1
+    app.count_opening_sensors = lambda state=None: 1
     app.turn_on_frigate = lambda: calls.append(('turn_on', 'opening'))
 
     app.setup()

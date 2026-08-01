@@ -6,10 +6,9 @@ If tests fail, this script exits with the pytest exit code (non-zero) so pre-com
 If tests pass but coverage is below threshold, it prints a warning but exits 0 (does not fail pre-commit).
 """
 import os
-import sys
 import subprocess
+import sys
 import xml.etree.ElementTree as ET
-
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 VENV_PY = os.path.join(REPO_ROOT, '.venv', 'bin', 'python')
@@ -30,7 +29,7 @@ CMD = [
 
 def run_tests():
     print('Running pytest with coverage using:', PY)
-    proc = subprocess.run(CMD, cwd=REPO_ROOT)
+    proc = subprocess.run(CMD, cwd=REPO_ROOT, check=False)
     return proc.returncode
 
 
@@ -53,7 +52,7 @@ def parse_coverage_xml():
                 # not standard for coverage.xml from coverage.py
                 continue
         return None
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print('Failed to parse coverage.xml:', e)
         return None
 
@@ -62,7 +61,7 @@ def main():
     rc = run_tests()
     if rc != 0:
         # tests failed — propagate failure so pre-commit aborts
-        print('Pytest failed (exit code {}), aborting coverage check.'.format(rc))
+        print(f'Pytest failed (exit code {rc}), aborting coverage check.')
         sys.exit(rc)
 
     percent = parse_coverage_xml()
@@ -70,10 +69,10 @@ def main():
         print('Could not determine coverage percentage')
         sys.exit(0)
 
-    msg = '\nTotal coverage: {:.2f}%'.format(percent)
+    msg = f'\nTotal coverage: {percent:.2f}%'
     print(msg)
     if percent < 80.0:
-        warn = '\n>>> COVERAGE WARNING: total coverage {:.2f}% is below threshold 80%. This will NOT fail pre-commit. <<<\n'.format(percent)
+        warn = f'\n>>> COVERAGE WARNING: total coverage {percent:.2f}% is below threshold 80%. This will NOT fail pre-commit. <<<\n'
         # Print warning to stderr for visibility in pre-commit logs
         sys.stderr.write(warn)
         sys.stderr.flush()

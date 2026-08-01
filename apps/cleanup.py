@@ -14,7 +14,6 @@ See module docstring and inline examples for usage.
 import appdaemon.plugins.hass.hassapi as hass
 
 
-
 class Cleanup(hass.Hass):
 
     def initialize(self):
@@ -46,19 +45,19 @@ class Cleanup(hass.Hass):
             kwargs (dict): additional callback context from AppDaemon.
         """
         self.log(
-            "Callback trigger_cleanup_callback from {}:{} {}->{}".format(entity, attribute, old, new))
+            f"Callback trigger_cleanup_callback from {entity}:{attribute} {old}->{new}")
 
         current_number_of_files = self.get_state(entity, attribute = "number_of_files")
         current_bytes = self.get_state(entity, attribute = "bytes")
 
         if(current_number_of_files < self._limit_number_of_files):
-            self.log("Skipping cleanup because number_of_files is below limit {} < {}".format(current_number_of_files, self._limit_number_of_files))
+            self.log(f"Skipping cleanup because number_of_files is below limit {current_number_of_files} < {self._limit_number_of_files}")
             return
 
         if(current_bytes < self._limit_bytes):
-            self.log("Skipping cleanup because bytes is below limit {} < {}".format(current_bytes, self._limit_bytes))
+            self.log(f"Skipping cleanup because bytes is below limit {current_bytes} < {self._limit_bytes}")
             return
 
-        self.log("Calling service {}".format(self._cleanup_service))
+        self.log(f"Calling service {self._cleanup_service}")
 
         self.call_service(self._cleanup_service)

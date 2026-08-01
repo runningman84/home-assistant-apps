@@ -2,7 +2,7 @@ from tests.light.conftest import make_light_app
 
 
 def test_below_min_elevation_and_illumination_missing_unknown():
-    app, calls = make_light_app(args={'illumination_sensors': ['sensor.l1'], 'min_elevation': 10})
+    app, _ = make_light_app(args={'illumination_sensors': ['sensor.l1'], 'min_elevation': 10})
     # elevation below threshold
     app.get_state = lambda e, attribute=None: 5 if e == 'sun.sun' and attribute == 'elevation' else None
     app._min_elevation = 10
@@ -19,7 +19,7 @@ def test_below_min_elevation_and_illumination_missing_unknown():
 
 
 def test_above_max_illumination_false_on_missing_values_and_true_on_high():
-    app, calls = make_light_app()
+    app, _ = make_light_app()
     app._illumination_sensors = ['sensor.l1']
     # missing returns False
     app.get_state = lambda e, attribute=None: None

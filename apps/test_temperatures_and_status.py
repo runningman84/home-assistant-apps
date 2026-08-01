@@ -14,9 +14,12 @@ def make_app(args=None, state_map=None):
     app._guest_control = None
     app._night_start = "23:15:00"
     app._night_end = "08:30:00"
-    app._min_temperature = 7
-    app._max_temperature = 30
-    app._offset_temperature = 0
+    app._min_temperature_heating = 7
+    app._max_temperature_heating = 30
+    app._min_temperature_cooling = 16
+    app._max_temperature_cooling = 30
+    app._offset_temperature_heating = 0
+    app._offset_temperature_cooling = 0
     app._home_temperature = 20
     app._home_temperature_control = None
     app._night_temperature = 18
@@ -48,8 +51,8 @@ def test_get_desired_temperature_by_status_and_minimum():
     assert app.get_desired_temperature_by_status('home') == 20.0
     assert app.get_desired_temperature_by_status('night') == 18.0
 
-    # if desired < min -> get_desired_temperature returns min
-    app._min_temperature = 21
+    # if desired < min -> get_desired_temperature returns min (for heating)
+    app._min_temperature_heating = 21
     assert app.get_desired_temperature() == 21
 
 
@@ -63,10 +66,12 @@ def test_get_current_and_target_temperature_helpers():
 
 
 def test_get_current_status_variations():
-    # summer takes precedence
+    # summer detection works but doesn't change status
     app = make_app()
     app.get_outside_temperature = lambda: 30
-    assert app.get_current_status() == 'summer'
+    assert app.is_summer() is True
+    # Status follows normal priority, not overridden by summer
+    assert app.get_current_status() in ('away', 'home')
 
     # open window
     app = make_app()

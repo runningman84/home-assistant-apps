@@ -1,5 +1,6 @@
-from tests.waste.conftest import make_waste_app
 from datetime import datetime
+
+from tests.waste.conftest import make_waste_app
 
 
 def test_seconds_until_tomorrow_and_today_notification():
@@ -8,7 +9,7 @@ def test_seconds_until_tomorrow_and_today_notification():
     assert isinstance(secs, int)
 
     # simulate collection today
-    today = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    today = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S")
     app.get_state = lambda e, attribute=None: 'Heute' if attribute == 'message' else today
     app._waste_calendar = 'sensor.waste'
     app.is_somebody_at_home = lambda: True

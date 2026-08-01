@@ -22,10 +22,11 @@ Notes:
     using `run_in` for a short delay.
 """
 
-from base import BaseApp
 import inspect
 import random
-from datetime import datetime, timezone
+from datetime import datetime
+
+from base import BaseApp
 
 
 class WelcomeControl(BaseApp):
@@ -235,7 +236,7 @@ class WelcomeControl(BaseApp):
             return
 
         if self._last_activity is not None:
-            elapsed = (datetime.now(timezone.utc) - self._last_activity).total_seconds()
+            elapsed = (datetime.now().astimezone() - self._last_activity).total_seconds()
             if elapsed < self._cooldown_timeout:
                 self.log(f"Skipping message due to recent activity {elapsed}s ago.")
                 return
@@ -262,7 +263,7 @@ class WelcomeControl(BaseApp):
             self.run_in(self.notify_media, 1, message=audio_message)
             self.notify_awtrix(text_message)
             self.store_greeted_residents(residents)
-            self._last_activity = datetime.now(timezone.utc)
+            self._last_activity = datetime.now().astimezone()
         elif direction == "going":
             self.log("Detected leaving movement; sending farewell message.")
             template = self._select_template("farewell", 0)
@@ -270,12 +271,12 @@ class WelcomeControl(BaseApp):
             text_message = template
             self.notify_media(message=audio_message)
             self.notify_awtrix(text_message)
-            self._last_activity = datetime.now(timezone.utc)
+            self._last_activity = datetime.now().astimezone()
 
     def store_greeted_residents(self, residents):
         """Store the list of residents who were greeted recently."""
         for resident in residents:
-            self._history[resident] = datetime.now(timezone.utc)
+            self._history[resident] = datetime.now().astimezone()
 
     def get_direction(self):
         """Determine movement direction using inside/outside motion sensors.
@@ -342,7 +343,7 @@ class WelcomeControl(BaseApp):
                 if filter_greeted:
                     last_greeted = self._history.get(entity)
                     if last_greeted is not None:
-                        elapsed = (datetime.now(timezone.utc) - last_greeted).total_seconds()
+                        elapsed = (datetime.now().astimezone() - last_greeted).total_seconds()
                         if elapsed < self._resident_timeout:
                             self.log(f"Skipping recently greeted resident {entity} (elapsed {elapsed}s)")
                             continue

@@ -22,9 +22,9 @@ temperature_sync:
 See module docstring and inline examples for usage.
 """
 
-import appdaemon.plugins.hass.hassapi as hass
 import inspect
 
+import appdaemon.plugins.hass.hassapi as hass
 
 
 class TemperatureSync(hass.Hass):

@@ -35,7 +35,7 @@ def test_flux_change_callback_turns_fluxer_on_off():
 
 
 def test_periodic_and_sensor_callbacks_call_update():
-    app, calls = make_light_app()
+    app, _ = make_light_app()
     called = []
     app.update_lights = lambda: called.append('u')
     app.periodic_time_callback({})

@@ -22,7 +22,7 @@ def test_sync_ignores_invalid_input_and_logs_error():
 
 
 def test_periodic_and_sensor_callbacks_invoke_sync():
-    app, calls = make_temp_sync_app(args={'input': 'sensor.temp', 'outputs': []}, state_map={})
+    app, _ = make_temp_sync_app(args={'input': 'sensor.temp', 'outputs': []}, state_map={})
     called = []
     app.sync_temperature = lambda: called.append('sync')
 
